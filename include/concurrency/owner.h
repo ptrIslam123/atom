@@ -7,7 +7,7 @@
 #include "include/concurrency/sync.h"
 #include "include/utils/assertion.h"
 
-namespace ciengine::concurrency {
+namespace atom::concurrency {
 
 template<typename T, typename C>
 class BasicRef;
@@ -196,6 +196,6 @@ void BasicRef<T, C>::accessMutable(Func f)
     });
 }
 
-} //! namespace ciengine::concurrency
+} //! namespace atom::concurrency
 
 #endif //! REF_COUNTER_H

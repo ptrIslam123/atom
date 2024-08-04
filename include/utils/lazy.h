@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <cassert>
 
-namespace ciengine::utils {
+namespace atom::utils {
 
 template<typename T>
 class BadLazyConstructed final : public std::exception {
@@ -199,7 +199,7 @@ const char* BadLazyConstructed<T>::what() const noexcept
     return m_msg.data();
 }
 
-} //! namespace namespace ciengine::utils
+} //! namespace namespace atom::utils
 
 
 #endif //! LAZY_H

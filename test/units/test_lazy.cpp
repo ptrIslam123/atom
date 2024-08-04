@@ -32,7 +32,7 @@ struct Foo final {
 
 } //! namespace
 
-using namespace ciengine;
+using namespace atom;
 
 TEST(LazyTest, TestEmptyLazy) {
     utils::LazyConstructed<Foo> foo;

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 
-project(ciengine)
+project(atom)
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 option(BUILD_EXAMPLES "Build the examples" ON)

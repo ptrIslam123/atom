@@ -4,7 +4,7 @@
 
 #include "include/concurrency/owner.h"
 
-using namespace ciengine;
+using namespace atom;
 
 //concurrency::Ref<std::string> makeRef()
 //{

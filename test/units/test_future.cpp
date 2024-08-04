@@ -21,8 +21,8 @@ struct Foo final {
 
 } //! namespace
 
-using namespace ciengine;
-using namespace ciengine::concurrency;
+using namespace atom;
+using namespace atom::concurrency;
 
 //TEST(FutureTest, TestAsyncConputations) {
 //    constexpr auto str = "Test foo string!";

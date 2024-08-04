@@ -8,7 +8,7 @@
 #include <optional>
 #include <chrono>
 
-namespace ciengine::concurrency::async {
+namespace atom::concurrency::async {
 
 /*
 Пришел к выводу что если хранить shared state не на куче, а взять ownership одному из сущностей(futrue && promise)
@@ -171,6 +171,6 @@ void Bind(utils::LazyConstructed<Future<T>>& future, utils::LazyConstructed<Prom
 
 }
 
-} //! namespace ciengine::concurrency::async
+} //! namespace atom::concurrency::async
 
 #endif //! ASYNC_FUTURE_H

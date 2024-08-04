@@ -64,7 +64,7 @@ struct Foo {
 //     });
 // }
 
-using namespace ciengine;
+using namespace atom;
 
 int main()
 {

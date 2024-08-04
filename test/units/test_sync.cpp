@@ -19,7 +19,7 @@ struct Foo final {
 
 } //! namespace
 
-using namespace ciengine;
+using namespace atom;
 
 TEST(SyncTest, TestImmutableAccess) {
     concurrency::Sync<Foo> foo(10, "Some text");

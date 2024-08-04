@@ -3,7 +3,7 @@
 
 #include <optional>
 
-namespace ciengine::utils {
+namespace atom::utils {
 
 /**
 * @brief This class represents RAII util.
@@ -94,6 +94,6 @@ inline bool ScopedLock<T>::wasUnlocked() const
     return !m_unlockCallback.has_value();
 }
 
-} //! namespace ciengine::utils
+} //! namespace atom::utils
 
 #endif //! VS_SCOPED_LOCK_H

@@ -33,7 +33,7 @@ struct Foo final {
 } //! namespace
 
 
-using namespace ciengine;
+using namespace atom;
 
 TEST(StaticAnyTest, TestCostructAndUseStaticAny) {
     int i = 10;

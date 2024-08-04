@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <cstring>
 
-namespace ciengine {
+namespace atom {
 
 namespace statical {
 
@@ -99,6 +99,7 @@ AnyObject<N>::AnyObject(T&& object):
 m_objectHolderStorage()
 {
     static_assert(sizeof(T) <= N && "Attempt to storge to static::AnyObject the object bigger than object storage itself");
+    std::memset(m_objectHolderStorage.data(), 0, m_objectHolderStorage.size());
     constructObjectHolder<T>(std::forward<T>(object));
 }
 
@@ -184,4 +185,4 @@ std::optional<const concurrency::Ref<T>> AnyObject::getRef() const & {
 
 } //! namespace dynamical impl section
 
-} //! namespace ciengine
+} //! namespace atom

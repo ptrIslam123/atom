@@ -13,7 +13,7 @@
 
 #include "include/utils/assertion.h"
 
-namespace ciengine::concurrency {
+namespace atom::concurrency {
 
 namespace __details {
 
@@ -282,6 +282,6 @@ T Sync<T>::getValue() const
 
 /* end class Sync<T> */
 
-} // namespace ciengine::concurrency::mem
+} // namespace atom::concurrency::mem
 
 #endif //! CONCURRENCY_SYNC_H

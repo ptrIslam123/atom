@@ -29,6 +29,8 @@ struct IsCallableWithConstRef<T*, Func, std::void_t<decltype(std::declval<Func>(
 
 } //! namespace __details
 
+#ifdef NDEBUG
+    
 template<typename T, typename C>
 class MutableSync;
 
@@ -36,10 +38,107 @@ template<typename T>
 class Sync;
 
 struct DefaultSyncConfig final {
-    using TimeStampeType = std::int16_t;
+    using TimeStampType = std::int16_t;
 
-    static constexpr auto TIME_STAMPE_LIMIT = std::numeric_limits<TimeStampeType>::max();
-    static constexpr auto INVALID_TIME_STAMPE = TimeStampeType{-1};
+    static constexpr auto TIME_STAMP_LIMIT = std::numeric_limits<TimeStampType>::max();
+    static constexpr auto INVALID_TIME_STAMP = TimeStampType{-1};
+};
+
+template<typename T>
+struct SyncTraits;
+
+template<typename T>
+struct SyncTraits<Sync<T>> final {
+    using SyncType = Sync<T>;
+    using ValueType = T;
+};
+
+template<typename T, typename C>
+struct SyncTraits<MutableSync<T, C>> final {
+    using ConfigType = C;
+    using TimeStampType = typename ConfigType::TimeStampType;
+
+    using SyncType = MutableSync<T, C>;
+    using ValueType = T;
+
+    static constexpr auto TIME_STAMP_LIMIT = ConfigType::TIME_STAMP_LIMIT;
+    static constexpr auto INVALID_TIME_STAMP = ConfigType::INVALID_TIME_STAMP;
+};
+
+
+template<typename T, typename C = DefaultSyncConfig>
+class MutableSync final {
+public:
+    using TraitsType = SyncTraits<MutableSync<T>>;
+    using ValueType = typename TraitsType::ValueType;
+    using MutableValueRefType = ValueType&;
+    using ImmutableValueRefType = const ValueType&;
+    using ConfigType = typename TraitsType::ConfigType;
+    using TimeStampType = typename TraitsType::TimeStampType;
+
+    static constexpr auto TIME_STAMP_LIMIT = TraitsType::TIME_STAMP_LIMIT;
+    static constexpr auto INVALID_TIME_STAMP = TraitsType::INVALID_TIME_STAMP;
+
+    template<typename ... Args>
+    MutableSync(Args&& ... args): m_value(std::forward<Args>(args) ...) {}
+    ~MutableSync() = default;
+
+    template<typename Func>
+    inline void accessMutable(Func f) { f(m_value); }
+
+    template<typename Func>
+    inline void accessImmutable(Func f) { f(m_value); }
+
+    inline void setValue(const T& newValue) { m_value = newValue; }
+    inline void setValue(T&& newValue) { m_value = std::move(newValue); }
+
+    inline T getValue() { return m_value; }
+    inline T getValue() const { return m_value; }
+
+private:
+    T m_value;
+};
+
+template<typename T>
+class Sync final {
+public:
+    using ValueType = T;
+    using ImmutableValueRefType = const ValueType&;
+
+    template<typename ... Args>
+    Sync(Args&& ... args): m_value(std::forward<Args>(args) ...) {}
+    Sync(Sync&& other) noexcept = default;
+    Sync& operator=(Sync&& other) noexcept = default;
+    Sync(const Sync& other) = default;
+    Sync& operator=(const Sync& other) = default;
+    ~Sync() = default;
+
+    template<typename Func>
+    inline void accessImmutable(Func f) { f(m_value); }
+
+    template<typename Func>
+    inline void accessImmutable(Func f) const { f(m_value); }
+
+    inline T getValue() { return m_value; }
+    inline T getValue() const { m_value; }
+
+private:
+    T m_value;
+};
+
+#else
+
+template<typename T, typename C>
+class MutableSync;
+
+template<typename T>
+class Sync;
+
+struct DefaultSyncConfig final {
+    using TimeStampType = std::int16_t;
+
+    static constexpr auto TIME_STAMP_LIMIT = std::numeric_limits<TimeStampType>::max();
+    static constexpr auto INVALID_TIME_STAMP = TimeStampType{-1};
 };
 
 template<typename T>
@@ -55,13 +154,13 @@ struct SyncTraits<Sync<T>> final {
 template<typename T, typename C>
 struct SyncTraits<MutableSync<T, C>> final {
     using ConfigType = C;
-    using TimeStampeType = typename ConfigType::TimeStampeType;
+    using TimeStampType = typename ConfigType::TimeStampType;
 
     using SyncType = MutableSync<T, C>;
     using ValueType = T;
 
-    static constexpr auto TIME_STAMPE_LIMIT = ConfigType::TIME_STAMPE_LIMIT;
-    static constexpr auto INVALID_TIME_STAMPE = ConfigType::INVALID_TIME_STAMPE;
+    static constexpr auto TIME_STAMP_LIMIT = ConfigType::TIME_STAMP_LIMIT;
+    static constexpr auto INVALID_TIME_STAMP = ConfigType::INVALID_TIME_STAMP;
 };
 
 
@@ -73,10 +172,10 @@ public:
     using MutableValueRefType = ValueType&;
     using ImmutableValueRefType = const ValueType&;
     using ConfigType = typename TraitsType::ConfigType;
-    using TimeStampeType = typename TraitsType::TimeStampeType;
+    using TimeStampType = typename TraitsType::TimeStampType;
 
-    static constexpr auto TIME_STAMPE_LIMIT = TraitsType::TIME_STAMPE_LIMIT;
-    static constexpr auto INVALID_TIME_STAMPE = TraitsType::INVALID_TIME_STAMPE;
+    static constexpr auto TIME_STAMP_LIMIT = TraitsType::TIME_STAMP_LIMIT;
+    static constexpr auto INVALID_TIME_STAMP = TraitsType::INVALID_TIME_STAMP;
 
     template<typename ... Args>
     MutableSync(Args&& ... args);
@@ -95,11 +194,11 @@ public:
     T getValue() const;
 
 private:
-    TimeStampeType genTimestamp(std::atomic<TimeStampeType>& counter) const;
-    TimeStampeType getCurrentTimestamp(const std::atomic<TimeStampeType>& counter) const;
+    TimeStampType genTimestamp(std::atomic<TimeStampType>& counter) const;
+    TimeStampType getCurrentTimestamp(const std::atomic<TimeStampType>& counter) const;
 
-    mutable std::atomic<TimeStampeType> m_writers;
-    mutable std::atomic<TimeStampeType> m_readers;
+    mutable std::atomic<TimeStampType> m_writers;
+    mutable std::atomic<TimeStampType> m_readers;
     std::atomic<std::uint64_t> m_refCount;
     T m_value;
 };
@@ -152,7 +251,7 @@ void MutableSync<T, C>::accessImmutable(Func f)
 
     const auto currentW = getCurrentTimestamp(m_writers);
 
-    PANIC(currentW == INVALID_TIME_STAMPE);
+    PANIC(currentW == INVALID_TIME_STAMP);
     PANIC(oldW != currentW);
 }
 
@@ -168,7 +267,7 @@ void MutableSync<T, C>::accessMutable(Func f)
     const auto currentW = getCurrentTimestamp(m_writers);
     const auto currentR = getCurrentTimestamp(m_readers);
 
-    PANIC(currentW == INVALID_TIME_STAMPE);
+    PANIC(currentW == INVALID_TIME_STAMP);
     PANIC(oldW != currentW && oldR == currentR);
 }
 
@@ -211,13 +310,13 @@ T MutableSync<T, C>::getValue() const
 }
 
 template<typename T, typename C>
-typename MutableSync<T, C>::TimeStampeType
-MutableSync<T, C>::genTimestamp(std::atomic<TimeStampeType>& counter) const
+typename MutableSync<T, C>::TimeStampType
+MutableSync<T, C>::genTimestamp(std::atomic<TimeStampType>& counter) const
 {
-    TimeStampeType timestamp = 0;
+    TimeStampType timestamp = 0;
     while (true) {
         timestamp = counter.fetch_add(1) + 1;
-        if (timestamp < TIME_STAMPE_LIMIT) {
+        if (timestamp < TIME_STAMP_LIMIT) {
             break;
         }
 
@@ -228,8 +327,8 @@ MutableSync<T, C>::genTimestamp(std::atomic<TimeStampeType>& counter) const
 }
 
 template<typename T, typename C>
-typename MutableSync<T, C>::TimeStampeType
-MutableSync<T, C>::getCurrentTimestamp(const std::atomic<TimeStampeType>& counter) const
+typename MutableSync<T, C>::TimeStampType
+MutableSync<T, C>::getCurrentTimestamp(const std::atomic<TimeStampType>& counter) const
 {
     return counter.load();
 }
@@ -273,6 +372,8 @@ T Sync<T>::getValue() const
 }
 
 /* end class Sync<T> */
+
+#endif
 
 } //! namespace atom::concurrency::mem
 

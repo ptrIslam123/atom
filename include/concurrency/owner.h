@@ -9,6 +9,85 @@
 
 namespace atom::concurrency {
 
+#ifdef NDEBUG
+
+template<typename T, typename C>
+class BasicRef;
+
+struct DefaultOwnerConfig final {
+    using RefCountType = std::int32_t;
+    static constexpr auto INVALID_REF_COUNT = RefCountType{-1};
+};
+
+template<typename T, typename C = DefaultOwnerConfig>
+class BasicOwner final {
+public:
+    using ConfigType = C;
+    using ValueType = T;
+    using RefCountType = typename ConfigType::RefCountType;
+
+    BasicOwner(const BasicOwner& ) = delete;
+    BasicOwner& operator=(const BasicOwner& ) = delete;
+    BasicOwner& operator=(BasicOwner&& ) noexcept = delete;
+
+    template<typename ... Args>
+    BasicOwner(Args&& ... args): m_value(std::forward<Args>(args) ...) {}
+    BasicOwner(BasicOwner<T, C>&& other) noexcept { m_value = std::move(other.m_value); }
+    ~BasicOwner() = default;
+
+    BasicRef<T, C> getMutableRef() { return BasicRef<T, C>{m_value}; }
+
+private:
+    friend BasicRef<T, C>;
+
+    T m_value;
+};
+
+template<typename T, typename C>
+class BasicRef final {
+public:
+    using ConfigType = C;
+    using ValueType = T;
+    using RefCountType = typename ConfigType::RefCountType;
+    using BasicOwnerType = BasicOwner<T, C>;
+    using BasicOwnerPtrType = BasicOwnerType*;
+    using MutableSyncBasicOwnerPtrType = MutableSync<BasicOwnerPtrType>;
+    using MutableValueRefType = ValueType&;
+    using ImmutableValueRefType = const ValueType&;
+
+    BasicRef& operator=(const BasicRef& ) = delete;
+    BasicRef(BasicRef&& ) noexcept = delete;
+    BasicRef& operator=(BasicRef&& ) noexcept = delete;
+
+    BasicRef(const BasicRef& other) { m_rvalue = other.m_rvalue; }
+    ~BasicRef() = default;
+
+    template<typename Func>
+    inline void accessMutable(Func f) { f(m_rvalue); }
+
+    template<typename Func>
+    inline void accessImmutable(Func f) { f(m_rvalue); }
+
+    template<typename Func>
+    inline void accessImmutable(Func f) const { f(m_rvalue); }
+
+    inline void invalidate() {}
+
+private:
+    friend BasicRef<T, C> BasicOwner<T, C>::getMutableRef();
+
+    explicit BasicRef(T& rvalue): m_rvalue(rvalue) {}
+    T& m_rvalue;
+};
+
+template<typename T>
+using Ref = BasicRef<T, DefaultOwnerConfig>;
+
+template<typename T>
+using Owner = BasicOwner<T, DefaultOwnerConfig>;
+
+#else
+
 template<typename T, typename C>
 class BasicRef;
 
@@ -195,6 +274,8 @@ void BasicRef<T, C>::accessMutable(Func f)
         f(rOwner->m_value);
     });
 }
+
+#endif //! NDEBUG
 
 } //! namespace atom::concurrency
 

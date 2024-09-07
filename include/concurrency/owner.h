@@ -56,8 +56,8 @@ public:
     using BasicOwnerType = BasicOwner<T, C>;
     using BasicOwnerPtrType = BasicOwnerType*;
     using MutableSyncBasicOwnerPtrType = MutableSync<BasicOwnerPtrType>;
-    using MutableValueRefType = ValueType&; //typename MutableSyncBasicOwnerPtrType::MutableValueRefType;
-    using ImmutableValueRefType = const ValueType&; //typename MutableSyncBasicOwnerPtrType::ImmutableValueRefType;
+    using MutableValueRefType = ValueType&;
+    using ImmutableValueRefType = const ValueType&;
 
     BasicRef& operator=(const BasicRef& ) = delete;
     BasicRef(BasicRef&& ) noexcept = delete;

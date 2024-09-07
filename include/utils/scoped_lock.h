@@ -38,6 +38,8 @@ public:
     explicit ScopedLock(C lockCallback, T unlockCallback);
     explicit ScopedLock(T unlockCallback);
     ~ScopedLock();
+
+    void reset();
     void unlock();
     operator bool() const;
     bool wasUnlocked() const;
@@ -78,14 +80,20 @@ inline void ScopedLock<T>::unlock()
 {
     if (!wasUnlocked()) {
         m_unlockCallback->operator()();
-        m_unlockCallback.reset();
     }
+    reset();
+}
+
+template<typename T>
+inline void ScopedLock<T>::reset()
+{
+    m_unlockCallback.reset();
 }
 
 template<typename T>
 inline ScopedLock<T>::operator bool() const
 {
-    return wasUnlocked();
+    return !wasUnlocked();
 }
 
 template<typename T>

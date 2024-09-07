@@ -50,10 +50,6 @@ template<typename T>
 struct SyncTraits<Sync<T>> final {
     using SyncType = Sync<T>;
     using ValueType = T;
-//    using ValueType = std::enable_if_t<
-//                        !std::is_pointer_v<std::remove_cv_t<T>> &&
-//                        !std::is_reference_v<std::remove_cv_t<T>>, T>;
-    //static constexpr auto SYNC_TYPE_SIZE = sizeof(Sync<T>);
 };
 
 template<typename T, typename C>
@@ -63,13 +59,9 @@ struct SyncTraits<MutableSync<T, C>> final {
 
     using SyncType = MutableSync<T, C>;
     using ValueType = T;
-//    using ValueType = std::enable_if_t<
-//                        !std::is_pointer_v<std::remove_cv_t<T>> &&
-//                        !std::is_reference_v<std::remove_cv_t<T>>, T>;
 
     static constexpr auto TIME_STAMPE_LIMIT = ConfigType::TIME_STAMPE_LIMIT;
     static constexpr auto INVALID_TIME_STAMPE = ConfigType::INVALID_TIME_STAMPE;
-    //static constexpr auto SYNC_TYPE_SIZE = sizeof(MutableSync<T, C>);
 };
 
 
@@ -282,6 +274,6 @@ T Sync<T>::getValue() const
 
 /* end class Sync<T> */
 
-} // namespace atom::concurrency::mem
+} //! namespace atom::concurrency::mem
 
 #endif //! CONCURRENCY_SYNC_H

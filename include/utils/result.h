@@ -24,7 +24,7 @@
 *                std::cout << "Division is failed" << std::endl;
 *            }
 */
-namespace utils {
+namespace atom::utils {
 
 template<typename T, typename E>
 class [[nodiscard]] Result final {
@@ -236,6 +236,6 @@ const typename Result<void, E>::ErrorType& Result<void, E>::error() const& {
 template<typename T>
 using DefaultResult = Result<T, std::string>;
 
-} // namespace utils
+} // namespace atom::utils
 
 #endif //! VS_RESULT_H

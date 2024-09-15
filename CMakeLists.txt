@@ -22,7 +22,7 @@ endif()
 function(target_builder TARGET_NAME SRCS HDRS HDRS_DIR LIBS LIBS_DIR OUTPUT_DIR)
     add_executable(${TARGET_NAME} ${SRCS} ${HDRS})
 
-    target_include_directories(${TARGET_NAME} PUBLIC ${HDRS_DIR} ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/include)
+    target_include_directories(${TARGET_NAME} PUBLIC ${HDRS_DIR} ${CURRENT_SOURCE_DIR} ${CURRENT_SOURCE_DIR}/include)
 
     target_link_directories(${TARGET_NAME} PUBLIC ${LIBS_DIR})
 
@@ -34,16 +34,18 @@ endfunction(target_builder)
 set(CMAKE_CXX_STANDARD 20)
 
 #******************************************************* Building engine library *******************************************************#
+# Используем ${CMAKE_CURRENT_SOURCE_DIR} вместо ${CMAKE_SOURCE_DIR}
+set(CURRENT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(LIB_NAME ${PROJECT_NAME}_core)
-set(LIB_DIRS ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/include)
+set(LIB_DIRS ${CURRENT_SOURCE_DIR} ${CURRENT_SOURCE_DIR}/include)
 message(STATUS "CIENGINE_DIRS=${LIB_DIRS}")
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_INCLUDE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/include")
 
-file(GLOB_RECURSE HDRS "include/*.h")
-file(GLOB_RECURSE SRCS "src/*.cpp")
+file(GLOB_RECURSE HDRS "${CURRENT_SOURCE_DIR}/include/*.h")
+file(GLOB_RECURSE SRCS "${CURRENT_SOURCE_DIR}/src/*.cpp")
 
 set(LIB_HDRS 
 ${HDRS}
@@ -74,7 +76,7 @@ file(MAKE_DIRECTORY ${CMAKE_INCLUDE_OUTPUT_DIRECTORY})
 add_custom_command(
     TARGET ${LIB_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_SOURCE_DIR}/include" ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}
+    "${CURRENT_SOURCE_DIR}/include" ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}
 )
 
 #******************************************************* Build example dir *******************************************************#
@@ -94,10 +96,9 @@ endif()
 if(BUILD_TESTS)
     message(STATUS "BUILD_TESTS=${CMAKE_BINARY_DIR}")
 
-    file(GLOB_RECURSE TEST_SRC "${CMAKE_SOURCE_DIR}/test/units/*.cpp")
+    file(GLOB_RECURSE TEST_SRC "${CURRENT_SOURCE_DIR}/test/units/*.cpp")
     set(TEST_LIBS "${GTEST_BOTH_LIBRARIES}" "pthread")
-    set(TEST_INCLUDE_DIRS "${CMAKE_SOURCE_DIR} ${GTEST_INCLUDE_DIRS}")
+    set(TEST_INCLUDE_DIRS "${CURRENT_SOURCE_DIR} ${GTEST_INCLUDE_DIRS}")
 
     target_builder("unit_tests" "${TEST_SRC}" "" "${TEST_INCLUDE_DIRS}" "${TEST_LIBS};${PROJECT_NAME}" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "test")
-
 endif()

@@ -42,7 +42,6 @@ message(STATUS "CIENGINE_DIRS=${LIB_DIRS}")
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
-set(CMAKE_INCLUDE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/include")
 
 file(GLOB_RECURSE HDRS "${CURRENT_SOURCE_DIR}/include/*.h")
 file(GLOB_RECURSE SRCS "${CURRENT_SOURCE_DIR}/src/*.cpp")
@@ -70,14 +69,6 @@ endif()
 target_include_directories(${LIB_NAME} PUBLIC ${LIB_DIRS})
 
 set_target_properties(${LIB_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
-
-file(MAKE_DIRECTORY ${CMAKE_INCLUDE_OUTPUT_DIRECTORY})
-
-add_custom_command(
-    TARGET ${LIB_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CURRENT_SOURCE_DIR}/include" ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}
-)
 
 #******************************************************* Build example dir *******************************************************#
 if(BUILD_EXAMPLES)

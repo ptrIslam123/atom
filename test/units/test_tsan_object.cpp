@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
 
-#include "include/concurrency/sync.h"
+#include "include/utils/tsan_object.h"
 
 #include <string>
 #include <string_view>
+
+using namespace atom::utils::tsan;
 
 namespace {
 
@@ -19,24 +21,22 @@ struct Foo final {
 
 } //! namespace
 
-using namespace atom;
-
 TEST(SyncTest, TestImmutableAccess) {
-    concurrency::Sync<Foo> foo(10, "Some text");
-    static_assert(std::is_same_v<concurrency::Sync<Foo>::ImmutableValueRefType, const Foo&>);
+    Object<Foo> foo(10, "Some text");
+    static_assert(std::is_same_v<Object<Foo>::ImmutableValueRefType, const Foo&>);
 
-    foo.accessImmutable([](concurrency::Sync<Foo>::ImmutableValueRefType foo) {
+    foo.accessImmutable([](Object<Foo>::ImmutableValueRefType foo) {
         EXPECT_EQ(foo.m_iValue, 10);
         EXPECT_EQ(foo.m_sValue, "Some text");
     });
 }
 
 TEST(SyncTest, TestMutableAccess) {
-    concurrency::MutableSync<Foo> foo(10, "Some text");
-    static_assert(std::is_same_v<concurrency::MutableSync<Foo>::ImmutableValueRefType, const Foo&>);
-    static_assert(std::is_same_v<concurrency::MutableSync<Foo>::MutableValueRefType, Foo&>);
+    MutableObject<Foo> foo(10, "Some text");
+    static_assert(std::is_same_v<MutableObject<Foo>::ImmutableValueRefType, const Foo&>);
+    static_assert(std::is_same_v<MutableObject<Foo>::MutableValueRefType, Foo&>);
 
-    foo.accessMutable([](concurrency::MutableSync<Foo>::MutableValueRefType foo) {
+    foo.accessMutable([](MutableObject<Foo>::MutableValueRefType foo) {
         EXPECT_EQ(foo.m_iValue, 10);
         EXPECT_EQ(foo.m_sValue, "Some text");
 

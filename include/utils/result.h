@@ -48,8 +48,6 @@ public:
     template<typename R>
     static Result onError(R&& error);
 
-    operator bool() const;
-
     bool isOk() const;
 
     bool isError() const;
@@ -127,11 +125,6 @@ template<typename T, typename E>
 template<typename R>
 Result<T, E> Result<T, E>::onError(R&& error) {
     return Result(std::forward<R>(error));
-}
-
-template<typename T, typename E>
-Result<T, E>::operator bool() const {
-    return isOk();
 }
 
 template<typename T, typename E>

@@ -1,43 +1,10 @@
 #include "include/cfg/grammar.h"
-
+#include <list>
+#include <stack>
 #include <cassert>
 
 namespace atom::ast::cfg::grammar {
 
-std::string_view Symbol::getData() const { return m_data; }
-std::string_view Symbol::getData() { return m_data; }
-
-bool Symbol::isTerminal() const { return m_isTerminal; }
-bool Symbol::isTerminal() { return m_isTerminal; }
-
-bool Symbol::operator==(const Symbol& other) const {
-    return std::hash<Symbol>{}(*this) == std::hash<Symbol>{}(other);
-}
-
-Symbol::Symbol(std::string_view data, bool isTerminal):
-m_data(data), m_isTerminal(isTerminal) {
-    assert(!m_data.empty());
-}
-
-Terminal::Terminal(std::string_view data): Symbol(data, true) {}
-
-bool Terminal::operator==(const Terminal& other) const {
-    return std::hash<Terminal>{}(*this) == std::hash<Terminal>{}(other);
-}
-
-NonTerminal::NonTerminal(std::string_view data): Symbol(data, false) {}
-
-bool NonTerminal::operator==(const NonTerminal& other) const {
-    return std::hash<NonTerminal>{}(*this) == std::hash<NonTerminal>{}(other);
-}
-
-std::ostream& operator<<(std::ostream& os, const Symbol& symbol) {
-    os << (symbol.isTerminal() ? "Terminal" : "NonTerminal");
-    os << "(" << symbol.getData() << ")";
-    return os;
-}
-std::ostream& operator<<(std::ostream& os, const Terminal& terminal) { return os << static_cast<Symbol>(terminal); }
-std::ostream& operator<<(std::ostream& os, const NonTerminal& nonTerminal) { return os << static_cast<Symbol>(nonTerminal); }
 
 //////// class Production
 
@@ -126,9 +93,9 @@ std::ostream& operator<<(std::ostream& os, const Production& production) {
     return production.operator<<(os);
 }
 
-Production& operator>>(Production& producntion, const Production::DerivationType& newDerivation) {
-    producntion.pushBack(newDerivation);
-    return producntion;
+Production& operator>>(Production& production, const Production::DerivationType& newDerivation) {
+    production.pushBack(newDerivation);
+    return production;
 }
 
 //////// class Productions
@@ -252,6 +219,9 @@ ProductionRules::IteratorType ProductionRules::find(const NonTerminal& left) {
     }
     return end();
 }
+std::optional<ProductionRules::DerivationType> ProductionRules::findNextDerivation(const DerivationType& derivation) const {
+    return static_cast<const ProductionRules*>(this)->findNextDerivation(derivation);
+}
 std::size_t ProductionRules::size() { return static_cast<const ProductionRules*>(this)->size(); }
 bool ProductionRules::isEmpty() { return static_cast<const ProductionRules*>(this)->isEmpty(); }
 
@@ -271,58 +241,11 @@ void ProductionRules::pushBack(const Symbol& symbol) {
     currentProduction.pushBack(symbol);
 }
 
-ProductionRules::FirstSetType ProductionRules::getFirst(const NonTerminal& nonTerminal) {
-    return makeFirst(nonTerminal);
-}
-
-ProductionRules::FirstSetType ProductionRules::makeFirst(const NonTerminal& nonTerminal) {
-    FirstSetType first;
-    auto it = find(nonTerminal);
-    if (it == end()) {
-        return first;
-    }
-
-    const auto& [_, prods] = *it;
-    for (auto prodIt = prods.cbegin(); prodIt != prods.cend(); ++prodIt) {
-        FirstSetType tmpFirst;
-
-        const Production& prod = *prodIt;
-        assert(!prod.isEmpty());
-
-        const DerivationType& firstDerivation = *prod.cbegin();
-        if (!firstDerivation.isTerminal()) {
-            tmpFirst = getFirst(NonTerminal{ firstDerivation.getData() });
-        } else {
-            tmpFirst.insert(Terminal{ firstDerivation.getData() });
-        }
-
-        if (auto _it = tmpFirst.find(None);
-            _it != tmpFirst.end()) {
-            tmpFirst.erase(_it);
-
-            const auto nextSymbol = getNext(nonTerminal);
-            if (nextSymbol.has_value() && !nextSymbol->isTerminal()) {
-                auto nextFirst = getFirst(NonTerminal{ nextSymbol->getData() });
-                tmpFirst.insert(nextFirst.begin(), nextFirst.end());
-            } else if (nextSymbol.has_value() && nextSymbol->isTerminal()) {
-                tmpFirst.insert(Terminal{ nextSymbol->getData() });
-            } else if (!nextSymbol.has_value()) {
-                tmpFirst.insert(None);
-            }
-
-            first.insert(tmpFirst.cbegin(), tmpFirst.cend());
-        }
-
-        first.insert(tmpFirst.cbegin(), tmpFirst.cend());
-    }
-    return first;
-}
-
-std::optional<Symbol> ProductionRules::getNext(const Symbol& symbol) {
+std::optional<ProductionRules::DerivationType> ProductionRules::findNextDerivation(const DerivationType& derivation) {
     for (const auto& [_, prods] : m_rules) {
         for (auto it = prods.cbegin(); it != prods.cend(); ++it) {
             const Production& prod = *it;
-            auto derivIt = prod.find(symbol);
+            auto derivIt = prod.find(derivation);
             if (derivIt != prod.cend() && derivIt + 1 != prod.cend()) {
                 return *(++derivIt);
             }
@@ -347,7 +270,140 @@ std::ostream& operator<<(std::ostream& os, const ProductionRules& prodRules) {
     return prodRules.operator<<(os);
 }
 
-bool operator==(const ProductionRules::FirstSetType& l, const ProductionRules::FirstSetType& r) {
+
+//////// class FirstAndFollowReqHandler
+
+
+FirstAndFollowReqHandler::FirstAndFollowReqHandler(ProductionRules& prodRules):
+m_prodRules(prodRules),
+m_firstTableCache() {}
+
+const FirstAndFollowReqHandler::FollowSetType& FirstAndFollowReqHandler::getFollow(const Symbol& symbol) {
+    static const FollowSetType emptyFollow;
+    if (symbol.isTerminal()) {
+        return emptyFollow;
+    }
+
+    auto it = m_followTableCache.find(symbol);
+    if (it != m_followTableCache.cend()) {
+        return it->second;
+    }
+
+    auto follow = makeFollow(symbol);
+    if (follow.empty()) {
+        return emptyFollow;
+    }
+
+    it = m_followTableCache.insert(std::make_pair(symbol, follow)).first;
+    assert(it != m_followTableCache.cend());
+    return it->second;
+}
+
+const FirstAndFollowReqHandler::FirstSetType& FirstAndFollowReqHandler::getFirst(const Symbol& symbol) {
+    static const FirstSetType emptyFirst;
+    auto it = m_firstTableCache.find(symbol);
+    if (it != m_firstTableCache.cend()) {
+        return it->second;
+    }
+
+    auto first = makeFirst(symbol);
+    if (first.empty()) {
+        return emptyFirst;
+    }
+
+    it = m_firstTableCache.insert(std::make_pair(symbol, first)).first;
+    assert(it != m_firstTableCache.cend());
+    return it->second;
+}
+
+FirstAndFollowReqHandler::FirstSetType FirstAndFollowReqHandler::makeFirst(const Symbol& symbol) {
+    FirstSetType first;
+    std::list<Symbol> context;
+    context.push_back(symbol);
+
+    while (!context.empty()) {
+        const auto searchSymbol = context.back();
+        context.pop_back();
+
+        if (searchSymbol.isTerminal()) {
+            first.insert(Terminal{ searchSymbol.getData() });
+            continue;
+        }
+
+        auto it = m_prodRules.find(NonTerminal{ searchSymbol.getData() });
+        if (it == m_prodRules.end()) {
+            assert(false);
+            return first;
+        }
+        
+        const auto& [_, prods] = *it;
+        for (auto prodIt = prods.cbegin(); prodIt != prods.cend(); ++prodIt) {
+            FirstSetType tmpFirst;
+            const Production& prod = *prodIt;
+            assert(!prod.isEmpty());
+
+            const DerivationType& firstDerivation = *prod.cbegin();
+            if (firstDerivation.isTerminal()) {
+                tmpFirst.insert(Terminal{ firstDerivation.getData() });
+            } else {
+                auto cacheIt = m_firstTableCache.find(firstDerivation);
+                if (cacheIt != m_firstTableCache.cend()) {
+                    tmpFirst.insert(cacheIt->second.begin(), cacheIt->second.end());
+                } else {
+                    context.push_back(static_cast<Symbol>(firstDerivation));
+                }
+            }
+
+            if (auto _it = tmpFirst.find(None);
+                _it != tmpFirst.end()) {
+                tmpFirst.erase(_it);
+
+                const auto nextSymbol = m_prodRules.findNextDerivation(searchSymbol);
+                if (nextSymbol.has_value() && !nextSymbol->isTerminal()) {
+                    auto cacheIt = m_firstTableCache.find(*nextSymbol);
+                    if (cacheIt != m_firstTableCache.cend()) {
+                        tmpFirst.insert(cacheIt->second.begin(), cacheIt->second.end());
+                    } else {
+                        context.push_back(static_cast<Symbol>(firstDerivation));
+                    }
+                } else if (nextSymbol.has_value() && nextSymbol->isTerminal()) {
+                    tmpFirst.insert(Terminal{ nextSymbol->getData() });
+                } else if (!nextSymbol.has_value()) {
+                    tmpFirst.insert(None);
+                }
+
+                first.insert(tmpFirst.cbegin(), tmpFirst.cend());
+            }
+
+            first.insert(tmpFirst.cbegin(), tmpFirst.cend());
+        }
+    }
+    return first;
+}
+
+FirstAndFollowReqHandler::FollowSetType FirstAndFollowReqHandler::makeFollow(const Symbol& symbol) {
+    FollowSetType follow;
+    const auto nextSymbol = m_prodRules.findNextDerivation(symbol);
+    if (!nextSymbol.has_value()) {
+        follow.insert(End);
+        return follow;
+    }
+
+    const auto& first = getFirst(static_cast<Symbol>(*nextSymbol));
+    if (first.empty()) {
+        follow.insert(End);
+        return follow;
+    }
+
+    follow.insert(first.cbegin(), first.cend());
+    if (auto it = follow.find(None); it != follow.cend()) {
+        follow.erase(it);
+        follow.insert(End);
+    } 
+    return follow;
+}
+
+bool operator==(const FirstAndFollowReqHandler::FirstSetType& l, const FirstAndFollowReqHandler::FirstSetType& r) {
     if (l.size() != r.size()) {
         return false;
     }

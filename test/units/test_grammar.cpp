@@ -115,7 +115,7 @@ TEST(TestGrammar, TestsRules1) {
     }
 }
 
-TEST(TestGrammar, TestFirst0) {
+TEST(TestGrammar, TestFirstAndFollow0) {
     /*
         S -> A t;
         A -> a;
@@ -123,6 +123,9 @@ TEST(TestGrammar, TestFirst0) {
 
     // FIRST(A) = { a }
     // FIRST(t) = { t }
+
+    // FOLLOW(S) = { $ }
+    // FOLLOW(A) = { t }
 
     // Terminal symbols = { a, t }
     const Terminal a{"a"}, t{"t"};
@@ -134,6 +137,7 @@ TEST(TestGrammar, TestFirst0) {
     rules.newProduction(S) >> A >> t;
     rules.newProduction(A) >> a;
 
+    FirstAndFollowReqHandler ffReqHandler{ rules };
     {
         auto it = rules.find(S);
         {
@@ -152,21 +156,48 @@ TEST(TestGrammar, TestFirst0) {
             ASSERT_EQ(prods, _prods);
         }
     }
-
     {
-        const auto& first = rules.getFirst(A);
+        const auto& first = ffReqHandler.getFirst(A);
+        ASSERT_FALSE(first.empty());
+        EXPECT_EQ(*first.cbegin(), a);
+    }
+    {
+        const auto& first = ffReqHandler.getFirst(S);
+        ASSERT_FALSE(first.empty());
+        EXPECT_EQ(*first.cbegin(), a);
+    }
+    {
+        const auto& first = ffReqHandler.getFirst(t);
+        ASSERT_FALSE(first.empty());
+        EXPECT_EQ(*first.cbegin(), t);
+    }
+    {
+        const auto& first = ffReqHandler.getFirst(a);
         ASSERT_FALSE(first.empty());
         EXPECT_EQ(*first.cbegin(), a);
     }
 
     {
-        const auto& first = rules.getFirst(S);
-        ASSERT_FALSE(first.empty());
-        EXPECT_EQ(*first.cbegin(), a);
+        const auto& follow = ffReqHandler.getFollow(A);
+        ASSERT_FALSE(follow.empty());
+        EXPECT_EQ(*follow.cbegin(), t);
+    }
+    {
+        const auto& follow = ffReqHandler.getFollow(S);
+        ASSERT_FALSE(follow.empty());
+        EXPECT_EQ(*follow.cbegin(), End);
+    }
+    {
+        const auto& follow = ffReqHandler.getFollow(t);
+        EXPECT_TRUE(follow.empty());
+    }
+    {
+        const auto& follow = ffReqHandler.getFollow(a);
+        EXPECT_TRUE(follow.empty());
     }
 }
 
-TEST(TestGrammar, TestFirst1) {
+TEST(TestGrammar, TestFirstAndFollow1) {
     /*
         S -> A t;
         A -> a | e;
@@ -175,6 +206,9 @@ TEST(TestGrammar, TestFirst1) {
     // FIRST(S) = FIRST(A) = { a, t }
     // FIRST(A) = { a, t }
     // FIRST(t) = { t }
+
+    // FOLLOW(A) = { t }
+    // FOLLOW(S) = { $ }
 
     // Terminal symbols = { a, t }
     const Terminal a{"a"}, t{"t"};
@@ -185,7 +219,8 @@ TEST(TestGrammar, TestFirst1) {
     ProductionRules rules;
     rules.newProduction(S) >> A >> t;
     rules.newProduction(A) >> a >> Or >> None;
-
+    FirstAndFollowReqHandler ffReqHandler{ rules };
+    using FirstSetType = FirstAndFollowReqHandler::FirstSetType;
     {
         auto it = rules.find(S);
         {
@@ -205,21 +240,34 @@ TEST(TestGrammar, TestFirst1) {
             ASSERT_EQ(prods, _prods);
         }
     }
-
     {
-        const auto expect = ProductionRules::FirstSetType{ a, t };
-        const auto real = rules.getFirst(A);
+        const auto expect = FirstSetType{ a, t };
+        const auto real = ffReqHandler.getFirst(A);
+        EXPECT_EQ(real, expect);
+    }
+    {
+        const auto expect = FirstSetType{ a, t };
+        const auto real = ffReqHandler.getFirst(S);
         EXPECT_EQ(real, expect);
     }
 
     {
-        const auto expect = ProductionRules::FirstSetType{ a, t };
-        const auto real = rules.getFirst(S);
-        EXPECT_EQ(real, expect);
+        const auto& follow = ffReqHandler.getFollow(A);
+        ASSERT_FALSE(follow.empty());
+        EXPECT_EQ(*follow.cbegin(), t);
+    }
+    {
+        const auto& follow = ffReqHandler.getFollow(S);
+        ASSERT_FALSE(follow.empty());
+        EXPECT_EQ(*follow.cbegin(), End);
+    }
+    {
+        const auto& follow = ffReqHandler.getFollow(a);
+        EXPECT_TRUE(follow.empty());
     }
 }
 
-TEST(TestGrammar, TestFirst2) {
+TEST(TestGrammar, TestFirstAndFollow2) {
     /*
         S -> A B C;
         A -> a | e;
@@ -227,10 +275,15 @@ TEST(TestGrammar, TestFirst2) {
         C -> c | e;
     */
 
-    // FIRST(S) = { a, b, c, ε }.
-    // FIRST(A) = { a, b, c, ε }.
-    // FIRST(B) = { b, c, ε }.
-    // FIRST(C) = { c, ε }.
+    // FIRST(S) = { a, b, c, ε }
+    // FIRST(A) = { a, b, c, ε }
+    // FIRST(B) = { b, c, ε }
+    // FIRST(C) = { c, ε }
+
+    // FOLLOW(S) = { $ }
+    // FOLLOW(A) = { b, c, $ }
+    // FOLLOW(B) = { c, $ }
+    // FOLLOW(C) = { $ }
 
     // Terminal symbols = { a, b, c }
     const Terminal a{"a"}, b{"b"}, c{"c"};
@@ -243,25 +296,53 @@ TEST(TestGrammar, TestFirst2) {
     rules.newProduction(A) >> a >> Or >> None;
     rules.newProduction(B) >> b >> Or >> None;
     rules.newProduction(C) >> c >> Or >> None;
+    FirstAndFollowReqHandler ffReqHandler{ rules };
+    using FirstSetType = FirstAndFollowReqHandler::FirstSetType;
+    using FollowSetType = FirstAndFollowReqHandler::FollowSetType;
     {
-        const auto expect = ProductionRules::FirstSetType{ c, None };
-        const auto real = rules.getFirst(C);
+        const auto expect = FirstSetType{ c, None };
+        const auto real = ffReqHandler.getFirst(C);
         EXPECT_EQ(real, expect);
     }
     {
-        const auto expect = ProductionRules::FirstSetType{ b, c, None };
-        const auto real = rules.getFirst(B);
+        const auto expect = FirstSetType{ b, c, None };
+        const auto real = ffReqHandler.getFirst(B);
         EXPECT_EQ(real, expect);
     }
     {
-        const auto expect = ProductionRules::FirstSetType{ a, b, c, None };
-        const auto real = rules.getFirst(A);
+        const auto expect = FirstSetType{ a, b, c, None };
+        const auto real = ffReqHandler.getFirst(A);
         EXPECT_EQ(real, expect);
     }
     {
-        const auto expect = ProductionRules::FirstSetType{ a, b, c, None };
-        const auto real = rules.getFirst(S);
+        const auto expect = FirstSetType{ a, b, c, None };
+        const auto real = ffReqHandler.getFirst(S);
         EXPECT_EQ(real, expect);
+    }
+
+    {
+        const auto expect = FollowSetType{ End };
+        const auto real = ffReqHandler.getFollow(S);
+        EXPECT_EQ(real, expect);
+    }
+    {
+        const auto expect = FollowSetType{ b, c, End };
+        const auto real = ffReqHandler.getFollow(A);
+        EXPECT_EQ(real, expect);
+    }
+    {
+        const auto expect = FollowSetType{ c, End };
+        const auto real = ffReqHandler.getFollow(B);
+        EXPECT_EQ(real, expect);
+    }
+    {
+        const auto expect = FollowSetType{ End };
+        const auto real = ffReqHandler.getFollow(C);
+        EXPECT_EQ(real, expect);
+    }
+    {
+        const auto follow = ffReqHandler.getFollow(a);
+        EXPECT_TRUE(follow.empty());
     }
 }
 
@@ -272,10 +353,15 @@ TEST(TestGrammar, TestFirst3) {
         B -> b
         C -> c
     */
-    // FIRST(S) = {a}
-    // FIRST(A) = {a}
-    // FIRST(B) = {b}
-    // FIRST(C) = {c}
+    // FIRST(S) = { a }
+    // FIRST(A) = { a }
+    // FIRST(B) = { b }
+    // FIRST(C) = { c }
+
+    // FOLLOW(S) = { $ }
+    // FOLLOW(A) = { b }
+    // FOLLOW(B) = { c }
+    // FOLLOW(C) = { $ }
 
     // Terminal symbols = { a, b, c }
     const Terminal a{"a"}, b{"b"}, c{"c"};
@@ -288,24 +374,48 @@ TEST(TestGrammar, TestFirst3) {
     rules.newProduction(A) >> a;
     rules.newProduction(B) >> b;
     rules.newProduction(C) >> c;
+    FirstAndFollowReqHandler ffReqHandler{ rules };
+    using FirstSetType = FirstAndFollowReqHandler::FirstSetType;
+    using FollowSetType = FirstAndFollowReqHandler::FollowSetType;
     {
-        const auto expect = ProductionRules::FirstSetType{ c };
-        const auto real = rules.getFirst(C);
+        const auto expect = FirstSetType{ c };
+        const auto real = ffReqHandler.getFirst(C);
         EXPECT_EQ(real, expect);
     }
     {
-        const auto expect = ProductionRules::FirstSetType{ b };
-        const auto real = rules.getFirst(B);
+        const auto expect = FirstSetType{ b };
+        const auto real = ffReqHandler.getFirst(B);
         EXPECT_EQ(real, expect);
     }
     {
-        const auto expect = ProductionRules::FirstSetType{ a };
-        const auto real = rules.getFirst(A);
+        const auto expect = FirstSetType{ a };
+        const auto real = ffReqHandler.getFirst(A);
         EXPECT_EQ(real, expect);
     }
     {
-        const auto expect = ProductionRules::FirstSetType{ a };
-        const auto real = rules.getFirst(S);
+        const auto expect = FirstSetType{ a };
+        const auto real = ffReqHandler.getFirst(S);
+        EXPECT_EQ(real, expect);
+    }
+
+    {
+        const auto expect = FollowSetType{ End };
+        const auto real = ffReqHandler.getFollow(S);
+        EXPECT_EQ(real, expect);
+    }
+    {
+        const auto expect = FollowSetType{ b };
+        const auto real = ffReqHandler.getFollow(A);
+        EXPECT_EQ(real, expect);
+    }
+    {
+        const auto expect = FollowSetType{ c };
+        const auto real = ffReqHandler.getFollow(B);
+        EXPECT_EQ(real, expect);
+    }
+    {
+        const auto expect = FollowSetType{ End };
+        const auto real = ffReqHandler.getFollow(C);
         EXPECT_EQ(real, expect);
     }
 }
@@ -318,11 +428,18 @@ TEST(TestGrammar, TestFirst4) {
         C -> c
         D -> d | ε
     */
-    // FIRST(S) = {a, b, c}
-    // FIRST(A) = {a, b}
-    // FIRST(B) = {b}
-    // FIRST(C) = {c}
-    // FIRST(D) = {d, ε}
+
+    // FIRST(S) = { a, b, c }
+    // FIRST(A) = { a, b }
+    // FIRST(B) = { b }
+    // FIRST(C) = { c }
+    // FIRST(D) = { d, ε }
+
+    // FOLLOW(S) = { $ }
+    // FOLLOW(A) = { b }
+    // FOLLOW(B) = { $ }
+    // FOLLOW(C) = { d, $ }
+    // FOLLOW(D) = { $ }
 
     // Terminal symbols = { a, b, c }
     const Terminal a{"a"}, b{"b"}, c{"c"}, d{"d"};
@@ -336,29 +453,58 @@ TEST(TestGrammar, TestFirst4) {
     rules.newProduction(B) >> b;
     rules.newProduction(C) >> c;
     rules.newProduction(D) >> d >> Or >> None;
+    FirstAndFollowReqHandler ffReqHandler{ rules };
+    using FirstSetType = FirstAndFollowReqHandler::FirstSetType;
+    using FollowSetType = FirstAndFollowReqHandler::FollowSetType;
     {
-        const auto expect = ProductionRules::FirstSetType{ d, None };
-        const auto real = rules.getFirst(D);
+        const auto expect = FirstSetType{ d, None };
+        const auto real = ffReqHandler.getFirst(D);
         EXPECT_EQ(real, expect);
     }
     {
-        const auto expect = ProductionRules::FirstSetType{ c };
-        const auto real = rules.getFirst(C);
+        const auto expect = FirstSetType{ c };
+        const auto real = ffReqHandler.getFirst(C);
         EXPECT_EQ(real, expect);
     }
     {
-        const auto expect = ProductionRules::FirstSetType{ b };
-        const auto real = rules.getFirst(B);
+        const auto expect = FirstSetType{ b };
+        const auto real = ffReqHandler.getFirst(B);
         EXPECT_EQ(real, expect);
     }
     {
-        const auto expect = ProductionRules::FirstSetType{ a, b };
-        const auto real = rules.getFirst(A);
+        const auto expect = FirstSetType{ a, b };
+        const auto real = ffReqHandler.getFirst(A);
         EXPECT_EQ(real, expect);
     }
     {
-        const auto expect = ProductionRules::FirstSetType{ a, b, c };
-        const auto real = rules.getFirst(S);
+        const auto expect = FirstSetType{ a, b, c };
+        const auto real = ffReqHandler.getFirst(S);
+        EXPECT_EQ(real, expect);
+    }
+
+    {
+        const auto expect = FollowSetType{ End };
+        const auto real = ffReqHandler.getFollow(S);
+        EXPECT_EQ(real, expect);
+    }
+    {
+        const auto expect = FollowSetType{ b };
+        const auto real = ffReqHandler.getFollow(A);
+        EXPECT_EQ(real, expect);
+    }
+    {
+        const auto expect = FollowSetType{ End };
+        const auto real = ffReqHandler.getFollow(B);
+        EXPECT_EQ(real, expect);
+    }
+    {
+        const auto expect = FollowSetType{ d, End };
+        const auto real = ffReqHandler.getFollow(C);
+        EXPECT_EQ(real, expect);
+    }
+    {
+        const auto expect = FollowSetType{ End };
+        const auto real = ffReqHandler.getFollow(D);
         EXPECT_EQ(real, expect);
     }
 }

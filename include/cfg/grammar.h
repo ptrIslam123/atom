@@ -1,5 +1,8 @@
 #pragma once
 
+#include "include/utils/assertion.h"
+#include "include/cfg/symbols.h"
+
 #include <ostream>
 #include <string_view>
 #include <vector>
@@ -10,82 +13,7 @@
 #include <unordered_set>
 #include <functional>
 #include <type_traits>
-#include "include/utils/assertion.h"
 #include <cassert>
-
-/**
- * (Context-Free Grammar, CFG) = {Non-terminal Symbols, Terminal Symbols, Start Symbol, Production Rules}
- */
-namespace atom::ast::cfg::grammar {
-
-class Symbol {
-public:
-    std::string_view getData() const;
-    std::string_view getData();
-
-    bool isTerminal() const;
-    bool isTerminal();
-
-    bool operator==(const Symbol& other) const;
-
-protected:
-    explicit Symbol(std::string_view data, bool isTerminal);
-
-private:
-    std::string m_data;
-    bool m_isTerminal;
-};
-
-class Terminal final : public Symbol {
-public:
-    explicit Terminal(std::string_view data);
-
-    bool operator==(const Terminal& other) const;
-};
-
-class NonTerminal final : public Symbol {
-public:
-    explicit NonTerminal(std::string_view data);
-
-    bool operator==(const NonTerminal& other) const;
-};
-
-constexpr struct{} Or;
-const Terminal None{"ε"};
-const NonTerminal S{"S"};
-
-std::ostream& operator<<(std::ostream& os, const Symbol& symbol);
-std::ostream& operator<<(std::ostream& os, const Terminal& terminal);
-std::ostream& operator<<(std::ostream& os, const NonTerminal& nonTerminal);
-
-} //! namespace xlt::ast::cfg::grammar
-
-namespace std {
-
-using namespace atom::ast::cfg::grammar;
-
-template<>
-struct hash<Symbol> {
-    std::size_t operator()(const Symbol& symbol) const {
-        return std::hash<std::string_view>{}(symbol.getData());
-    }
-};
-
-template<>
-struct hash<Terminal> {
-    std::size_t operator()(const Terminal& symbol) const {
-        return std::hash<std::string_view>{}(symbol.getData());
-    }
-};
-
-template<>
-struct hash<NonTerminal> {
-    std::size_t operator()(const NonTerminal& symbol) const {
-        return std::hash<std::string_view>{}(symbol.getData());
-    }
-};
-
-} //! namespace std
 
 namespace atom::ast::cfg::grammar {
 
@@ -176,7 +104,7 @@ private:
 };
 
 std::ostream& operator<<(std::ostream& os, const Production& production);
-Production& operator>>(Production& producntion, const Production::DerivationType& newDerivation);
+Production& operator>>(Production& production, const Production::DerivationType& newDerivation);
 
 class Productions final {
 public:
@@ -226,7 +154,6 @@ public:
     using PairType = std::pair<NonTerminal, Productions>;
     using IteratorType = __details::RandomAccessIterator<PairType>;
     using ConstIteratorType = __details::RandomAccessIterator<const PairType>;
-    using FirstSetType = std::unordered_set<Terminal>;
 
     explicit ProductionRules();
     ProductionRules& newProduction(const NonTerminal& left);
@@ -241,24 +168,20 @@ public:
     ConstIteratorType cbegin() const;
     ConstIteratorType cend() const;
     ConstIteratorType find(const NonTerminal& left) const;
-
+    std::optional<DerivationType> findNextDerivation(const DerivationType& derivation) const;
     std::size_t size() const;
     bool isEmpty() const;
-    FirstSetType getFirst(const NonTerminal& nonTerminal) const;
 
     IteratorType begin();
     IteratorType end();
     IteratorType find(const NonTerminal& left);
+    std::optional<DerivationType> findNextDerivation(const DerivationType& derivation);
     std::size_t size();
     bool isEmpty();
-    FirstSetType getFirst(const NonTerminal& nonTerminal);
 
     std::ostream& operator<<(std::ostream& os) const;
 
 private:
-    FirstSetType makeFirst(const NonTerminal& nonTerminal);
-    std::optional<Symbol> getNext(const Symbol& symbol);
-
     std::vector<std::pair<NonTerminal, Productions>> m_rules;
 };
 
@@ -269,7 +192,27 @@ inline ProductionRules& operator>>(ProductionRules& prodRules, const decltype(Or
     return prodRules;
 }
 
-bool operator==(const ProductionRules::FirstSetType& l, const ProductionRules::FirstSetType& r);
+class FirstAndFollowReqHandler final {
+public:
+    using DerivationType = ProductionRules::DerivationType;
+    using FirstSetType = std::unordered_set<Symbol>;
+    using FollowSetType = std::unordered_set<Symbol>;
+
+    explicit FirstAndFollowReqHandler(ProductionRules& prodRules);
+
+    const FirstSetType& getFirst(const Symbol& symbol);
+    const FollowSetType& getFollow(const Symbol& symbol);
+
+private:
+    FirstSetType makeFirst(const Symbol& symbol);
+    FollowSetType makeFollow(const Symbol& symbol);
+
+    ProductionRules m_prodRules;
+    std::unordered_map<Symbol, FirstSetType> m_firstTableCache;
+    std::unordered_map<Symbol, FollowSetType> m_followTableCache;
+};
+
+bool operator==(const FirstAndFollowReqHandler::FirstSetType& l, const FirstAndFollowReqHandler::FirstSetType& r);
 
 namespace __details {
 

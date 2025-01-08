@@ -3,7 +3,7 @@
 #include <stack>
 #include <cassert>
 
-namespace atom::ast::cfg::grammar {
+namespace atom::cfg::grammar {
 
 
 //////// class Production
@@ -359,16 +359,18 @@ FirstAndFollowReqHandler::FirstSetType FirstAndFollowReqHandler::makeFirst(const
                 tmpFirst.erase(_it);
 
                 const auto nextSymbol = m_prodRules.findNextDerivation(searchSymbol);
-                if (nextSymbol.has_value() && !nextSymbol->isTerminal()) {
-                    auto cacheIt = m_firstTableCache.find(*nextSymbol);
-                    if (cacheIt != m_firstTableCache.cend()) {
-                        tmpFirst.insert(cacheIt->second.begin(), cacheIt->second.end());
+                if (nextSymbol.has_value()) {
+                    if (nextSymbol->isTerminal()) {
+                        tmpFirst.insert(*nextSymbol);
                     } else {
-                        context.push_back(static_cast<Symbol>(firstDerivation));
+                        auto cacheIt = m_firstTableCache.find(*nextSymbol);
+                        if (cacheIt != m_firstTableCache.cend()) {
+                            tmpFirst.insert(cacheIt->second.begin(), cacheIt->second.end());
+                        } else {
+                            context.push_back(static_cast<Symbol>(*nextSymbol));
+                        }
                     }
-                } else if (nextSymbol.has_value() && nextSymbol->isTerminal()) {
-                    tmpFirst.insert(Terminal{ nextSymbol->getData() });
-                } else if (!nextSymbol.has_value()) {
+                } else {
                     tmpFirst.insert(None);
                 }
 
@@ -417,4 +419,4 @@ bool operator==(const FirstAndFollowReqHandler::FirstSetType& l, const FirstAndF
     return true;
 }
 
-} //! namespace atom::ast::cfg::grammar
+} //! namespace atom::cfg::grammar

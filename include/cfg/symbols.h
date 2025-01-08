@@ -9,7 +9,7 @@
 /**
  * (Context-Free Grammar, CFG) = {Non-terminal Symbols, Terminal Symbols, Start Symbol, Production Rules}
  */
-namespace atom::ast::cfg::grammar {
+namespace atom::cfg::grammar {
 
 class Symbol {
 public:
@@ -52,11 +52,11 @@ std::ostream& operator<<(std::ostream& os, const Symbol& symbol);
 std::ostream& operator<<(std::ostream& os, const Terminal& terminal);
 std::ostream& operator<<(std::ostream& os, const NonTerminal& nonTerminal);
 
-} //! namespace xlt::ast::cfg::grammar
+} //! namespace atom::cfg::grammar
 
 namespace std {
 
-using namespace atom::ast::cfg::grammar;
+using namespace atom::cfg::grammar;
 
 template<>
 struct hash<Symbol> {

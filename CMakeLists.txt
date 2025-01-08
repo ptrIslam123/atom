@@ -82,6 +82,7 @@ if(BUILD_EXAMPLES)
     message(STATUS "BUILD_EXAMPLES=ON")
 
     target_builder("tsan-object-usage" "examples/tsan_object_usage.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
+    target_builder("ll-parser" "examples/ll_parser.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
     # target_builder("rc-usage" "examples/rc_usage.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
     # target_builder("safe_mutex_usage" "examples/safe_mutex_usage.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
 endif()

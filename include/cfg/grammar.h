@@ -15,59 +15,13 @@
 #include <type_traits>
 #include <cassert>
 
-namespace atom::ast::cfg::grammar {
-
-namespace __details {
-
-template<typename T>
-class RandomAccessIterator final {
-public:
-    using iterator_category = std::random_access_iterator_tag;
-    using difference_type = std::ptrdiff_t;
-    using value_type = T;
-    using pointer = value_type*;
-    using reference = value_type&;
-    using const_pointer = const std::remove_cv_t<value_type>&; // to prevent double const prefix
-    using const_reference = const std::remove_cv_t<value_type>&; // to prevent double const prefix
-
-    explicit RandomAccessIterator(pointer ptr);
-
-    reference operator*() const;
-    pointer operator->() const;
-
-    reference operator*();
-    pointer operator->();
-
-    bool operator>(const RandomAccessIterator& other) const;
-    bool operator>=(const RandomAccessIterator& other) const;
-    bool operator<(const RandomAccessIterator& other) const;
-    bool operator<=(const RandomAccessIterator& other) const;
-    bool operator==(const RandomAccessIterator& other) const;
-    bool operator!=(const RandomAccessIterator& other) const;
-
-    RandomAccessIterator operator+(unsigned int offset);
-    RandomAccessIterator operator-(unsigned int offset);
-
-    RandomAccessIterator& operator+=(unsigned int offset);
-    RandomAccessIterator& operator-=(unsigned int offset);
-
-    RandomAccessIterator& operator++();
-    RandomAccessIterator& operator++(int);
-
-    RandomAccessIterator& operator--();
-    RandomAccessIterator& operator--(int);
-
-protected:
-    pointer m_ptr;
-};
-
-} //! namespace __details
+namespace atom::cfg::grammar {
 
 class Production final {
 public:
     using DerivationType = Symbol;
-    using IteratorType = __details::RandomAccessIterator<DerivationType>;
-    using ConstIteratorType = __details::RandomAccessIterator<const DerivationType>;
+    using IteratorType = std::vector<DerivationType>::iterator;
+    using ConstIteratorType = std::vector<DerivationType>::const_iterator;
 
     explicit Production(std::span<const DerivationType> derivations = {});
 
@@ -97,6 +51,9 @@ public:
 
     std::ostream& operator<<(std::ostream& os) const;
 
+    const std::vector<DerivationType>& getDerivations() const { return m_derivations; }
+    const std::vector<DerivationType>& getDerivations() { return m_derivations; }
+
 private:
     bool isSame(const Production& other) const;
 
@@ -110,8 +67,8 @@ class Productions final {
 public:
     using ProductionType = Production;
     using DerivationType = ProductionType::DerivationType;
-    using IteratorType = __details::RandomAccessIterator<Production>;
-    using ConstIteratorType = __details::RandomAccessIterator<const Production>;
+    using IteratorType = std::vector<Production>::iterator;
+    using ConstIteratorType = std::vector<Production>::const_iterator;
 
     explicit Productions(std::span<const Production> productions = {});
     ConstIteratorType cbegin() const;
@@ -152,8 +109,8 @@ public:
     using ProductionType = Productions::ProductionType;
     using DerivationType = Production::DerivationType;
     using PairType = std::pair<NonTerminal, Productions>;
-    using IteratorType = __details::RandomAccessIterator<PairType>;
-    using ConstIteratorType = __details::RandomAccessIterator<const PairType>;
+    using IteratorType =std::vector<std::pair<NonTerminal, Productions>>::iterator;
+    using ConstIteratorType = std::vector<std::pair<NonTerminal, Productions>>::const_iterator;
 
     explicit ProductionRules();
     ProductionRules& newProduction(const NonTerminal& left);
@@ -214,125 +171,4 @@ private:
 
 bool operator==(const FirstAndFollowReqHandler::FirstSetType& l, const FirstAndFollowReqHandler::FirstSetType& r);
 
-namespace __details {
-
-template<typename T>
-RandomAccessIterator<T>::RandomAccessIterator(const pointer ptr): m_ptr(ptr) {}
-
-template<typename T>
-RandomAccessIterator<T>::reference RandomAccessIterator<T>::operator*() const { return *m_ptr; }
-
-template<typename T>
-RandomAccessIterator<T>::pointer RandomAccessIterator<T>::operator->() const { return m_ptr; }
-
-template<typename T>
-RandomAccessIterator<T>::reference RandomAccessIterator<T>::operator*() { return *m_ptr; }
-
-template<typename T>
-RandomAccessIterator<T>::pointer RandomAccessIterator<T>::operator->() { return m_ptr; }
-
-template<typename T>
-typename RandomAccessIterator<T>::RandomAccessIterator RandomAccessIterator<T>::operator+(const unsigned int offset) {
-    return RandomAccessIterator<T>{ m_ptr + offset };
-}
-
-template<typename T>
-typename RandomAccessIterator<T>::RandomAccessIterator RandomAccessIterator<T>::operator-(unsigned int offset) {
-    return RandomAccessIterator<T>{ m_ptr - offset };
-}
-
-template<typename T>
-typename RandomAccessIterator<T>::RandomAccessIterator& RandomAccessIterator<T>::operator+=(const unsigned int offset) {
-    m_ptr += offset;
-    return *this;
-}
-
-template<typename T>
-typename RandomAccessIterator<T>::RandomAccessIterator& RandomAccessIterator<T>::operator-=(unsigned int offset) {
-    m_ptr -= offset;
-    return *this;
-}
-
-template<typename T>
-typename RandomAccessIterator<T>::RandomAccessIterator& RandomAccessIterator<T>::operator++() { return this->operator+=(1); }
-
-template<typename T>
-typename RandomAccessIterator<T>::RandomAccessIterator& RandomAccessIterator<T>::operator++(int) {
-    auto tmp = *this;
-    (void)this->operator+=(1);
-    return tmp;
-}
-
-template<typename T>
-typename RandomAccessIterator<T>::RandomAccessIterator& RandomAccessIterator<T>::operator--() { return this->operator-=(1); }
-
-template<typename T>
-typename RandomAccessIterator<T>::RandomAccessIterator& RandomAccessIterator<T>::operator--(int) {
-    auto tmp = *this;
-    (void)this->operator-=(1);
-    return tmp;
-}
-
-template<typename T>
-bool operator>(const RandomAccessIterator<T>& l, const RandomAccessIterator<T>& r) {
-    return l.operator>(r);
-}
-
-template<typename T>
-bool operator>=(const RandomAccessIterator<T>& l, const RandomAccessIterator<T>& r) {
-    return l.operator>=(r);
-}
-
-template<typename T>
-bool operator<(const RandomAccessIterator<T>& l, const RandomAccessIterator<T>& r) {
-    return l.operator<(r);
-}
-
-template<typename T>
-bool operator<=(const RandomAccessIterator<T>& l, const RandomAccessIterator<T>& r) {
-    return l.operator<=(r);
-}
-
-template<typename T>
-bool operator==(const RandomAccessIterator<T>& l, const RandomAccessIterator<T>& r) {
-    return l.operator==(r);
-}
-
-template<typename T>
-bool operator!=(const RandomAccessIterator<T>& l, const RandomAccessIterator<T>& r) {
-    return l.operator!=(r);
-}
-
-template<typename T>
-bool RandomAccessIterator<T>::operator>(const RandomAccessIterator<T>& other) const {
-    return m_ptr > other.m_ptr;
-}
-
-template<typename T>
-bool RandomAccessIterator<T>::operator>=(const RandomAccessIterator<T>& other) const {
-    return m_ptr >= other.m_ptr;
-}
-
-template<typename T>
-bool RandomAccessIterator<T>::operator<(const RandomAccessIterator<T>& other) const {
-    return m_ptr < other.m_ptr;
-}
-
-template<typename T>
-bool RandomAccessIterator<T>::operator<=(const RandomAccessIterator<T>& other) const {
-    return m_ptr <= other.m_ptr;
-}
-
-template<typename T>
-bool RandomAccessIterator<T>::operator==(const RandomAccessIterator<T>& other) const {
-    return m_ptr == other.m_ptr;
-}
-
-template<typename T>
-bool RandomAccessIterator<T>::operator!=(const RandomAccessIterator<T>& other) const {
-    return m_ptr != other.m_ptr;
-}
-
-} //! namespace __details
-
-} //! namespace atom::ast::cfg::grammar
+} //! namespace atom::cfg::grammar

@@ -3,8 +3,9 @@
 #include "include/utils/assertion.h"
 
 #include <stdexcept>
+#include <cassert>
 
-namespace atom::ast::cfg::grammar {
+namespace atom::cfg::grammar {
 
 std::string_view Symbol::getData() const { return m_data; }
 std::string_view Symbol::getData() { return m_data; }
@@ -18,6 +19,7 @@ bool Symbol::operator==(const Symbol& other) const {
 
 Symbol::Symbol(std::string_view data, bool isTerminal):
 m_data(data), m_isTerminal(isTerminal) {
+    assert(!m_data.empty());
     ASSERTION(!m_data.empty(), std::runtime_error, "Empty symbol")
 }
 
@@ -41,4 +43,4 @@ std::ostream& operator<<(std::ostream& os, const Symbol& symbol) {
 std::ostream& operator<<(std::ostream& os, const Terminal& terminal) { return os << static_cast<Symbol>(terminal); }
 std::ostream& operator<<(std::ostream& os, const NonTerminal& nonTerminal) { return os << static_cast<Symbol>(nonTerminal); }
 
-} //! namespace atom::ast::cfg::grammar
+} //! namespace atom::cfg::grammar

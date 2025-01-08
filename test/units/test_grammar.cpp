@@ -2,7 +2,7 @@
 
 #include "include/cfg/grammar.h"
 
-using namespace atom::ast::cfg::grammar;
+using namespace atom::cfg::grammar;
 
 TEST(TestGrammar, TestProduction) {
     const Terminal a{"a"}, b{"b"}, c{"c"}, d{"d"};
@@ -112,6 +112,31 @@ TEST(TestGrammar, TestsRules1) {
         firstProd>> b; secondProd >> None;
         EXPECT_EQ(*_prods.cbegin(), firstProd);
         EXPECT_EQ(*(++_prods.cbegin()), secondProd);
+    }
+}
+
+TEST(TestGrammar, TTTT) {
+    /*
+        S -> A B C;
+        A -> a;
+        B -> b | e;
+        C -> c;
+    */
+    const Terminal a{"a"}, b{"b"}, c{"c"};
+    const NonTerminal A{"A"}, B{"B"}, C{"C"};
+
+    ProductionRules rules;
+    rules.newProduction(S) >> A >> B >> C;
+    rules.newProduction(A) >> a;
+    rules.newProduction(B) >> b >> Or >> None;
+    rules.newProduction(C) >> c;
+
+    FirstAndFollowReqHandler ffReqHandler{ rules };
+    using FirstSetType = FirstAndFollowReqHandler::FirstSetType;
+    {
+        const auto expect = FirstSetType{ b, c };
+        const auto real = ffReqHandler.getFirst(B);
+        EXPECT_EQ(real, expect);
     }
 }
 

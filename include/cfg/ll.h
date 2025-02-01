@@ -1,9 +1,9 @@
 #ifndef CFG_LL_H
 #define CFG_LL_H
 
+#include "include/cfg/grammar.h"
+#include "include/cfg/node.h"
 #include "include/utils/assertion.h"
-#include "grammar.h"
-#include "node.h"
 
 #include <algorithm>
 #include <unordered_set>
@@ -14,11 +14,35 @@
 
 namespace atom::cfg::ll {
 
+class FirstAndFollowReqHandler final {
+public:
+    using ProductionRulesType = atom::cfg::grammar::ProductionRules;
+    using ProductionsType = atom::cfg::grammar::Productions;
+    using ProductionType = atom::cfg::grammar::Production;
+    using DerivationType = ProductionRulesType::DerivationType;
+    using SymbolType = atom::cfg::grammar::Symbol;
+    using SymbolSetType = std::unordered_set<SymbolType>;
+
+    explicit FirstAndFollowReqHandler(ProductionRulesType& prodRules);
+
+    const SymbolSetType& getFirst(const SymbolType& symbol);
+    const SymbolSetType& getFollow(const SymbolType& symbol);
+
+private:
+    SymbolSetType makeFirst(const SymbolType& symbol);
+    SymbolSetType makeFollow(const SymbolType& symbol);
+
+    ProductionRulesType& m_prodRules;
+    std::unordered_map<SymbolType, SymbolSetType> m_firstCacheTable;
+    std::unordered_map<SymbolType, SymbolSetType> m_followCacheTable;
+};
+
+bool operator==(const FirstAndFollowReqHandler::SymbolSetType& l, const FirstAndFollowReqHandler::SymbolSetType& r);
+
 template<typename T>
 class Parser final {
 public:
     using ProductionRulesType = atom::cfg::grammar::ProductionRules;
-    using FirstAndFollowReqHandlerType = atom::cfg::grammar::FirstAndFollowReqHandler;
     using TokenToTerminalType = atom::cfg::grammar::Terminal(*)(const T&);
 
     explicit Parser(ProductionRulesType&& prodRules, TokenToTerminalType tokenToTerminal):
@@ -124,7 +148,7 @@ private:
 
     TokenToTerminalType m_tokenToTerminal;
     ProductionRulesType m_prodRules;
-    FirstAndFollowReqHandlerType m_ffReqHandler;
+    FirstAndFollowReqHandler m_ffReqHandler;
     std::list<std::pair<grammar::Symbol, ast::Node*>> m_context;
     std::span<const T> m_tokens;
     int m_tokenIndex;

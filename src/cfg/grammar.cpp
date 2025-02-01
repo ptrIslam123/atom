@@ -1,10 +1,47 @@
 #include "include/cfg/grammar.h"
-#include <list>
-#include <stack>
+
+#include "include/utils/assertion.h"
+
 #include <cassert>
 
 namespace atom::cfg::grammar {
 
+std::string_view Symbol::getData() const { return m_data; }
+std::string_view Symbol::getData() { return m_data; }
+
+bool Symbol::isTerminal() const { return m_isTerminal; }
+bool Symbol::isTerminal() { return m_isTerminal; }
+
+bool Symbol::operator==(const Symbol& other) const {
+    return std::hash<Symbol>{}(*this) == std::hash<Symbol>{}(other);
+}
+
+Symbol::Symbol(std::string_view data, bool isTerminal):
+    m_data(data), m_isTerminal(isTerminal) {
+    assert(!m_data.empty());
+    ASSERTION(!m_data.empty(), std::runtime_error, "Empty symbol")
+}
+
+Terminal::Terminal(std::string_view data): Symbol(data, true) {}
+Terminal::Terminal(const Symbol& symbol): Symbol(symbol.getData(), symbol.isTerminal()) {}
+
+bool Terminal::operator==(const Terminal& other) const {
+    return std::hash<Terminal>{}(*this) == std::hash<Terminal>{}(other);
+}
+
+NonTerminal::NonTerminal(std::string_view data): Symbol(data, false) {}
+NonTerminal::NonTerminal(const Symbol& symbol): Symbol(symbol.getData(), symbol.isTerminal()) {}
+bool NonTerminal::operator==(const NonTerminal& other) const {
+    return std::hash<NonTerminal>{}(*this) == std::hash<NonTerminal>{}(other);
+}
+
+std::ostream& operator<<(std::ostream& os, const Symbol& symbol) {
+    os << (symbol.isTerminal() ? "Terminal" : "NonTerminal");
+    os << "(" << symbol.getData() << ")";
+    return os;
+}
+std::ostream& operator<<(std::ostream& os, const Terminal& terminal) { return os << static_cast<Symbol>(terminal); }
+std::ostream& operator<<(std::ostream& os, const NonTerminal& nonTerminal) { return os << static_cast<Symbol>(nonTerminal); }
 
 //////// class Production
 
@@ -268,155 +305,6 @@ ProductionRules& operator>>(ProductionRules& prodRules, const Symbol& symbol) {
 
 std::ostream& operator<<(std::ostream& os, const ProductionRules& prodRules) {
     return prodRules.operator<<(os);
-}
-
-
-//////// class FirstAndFollowReqHandler
-
-
-FirstAndFollowReqHandler::FirstAndFollowReqHandler(ProductionRules& prodRules):
-m_prodRules(prodRules),
-m_firstTableCache() {}
-
-const FirstAndFollowReqHandler::FollowSetType& FirstAndFollowReqHandler::getFollow(const Symbol& symbol) {
-    static const FollowSetType emptyFollow;
-    if (symbol.isTerminal()) {
-        return emptyFollow;
-    }
-
-    auto it = m_followTableCache.find(symbol);
-    if (it != m_followTableCache.cend()) {
-        return it->second;
-    }
-
-    auto follow = makeFollow(symbol);
-    if (follow.empty()) {
-        return emptyFollow;
-    }
-
-    it = m_followTableCache.insert(std::make_pair(symbol, follow)).first;
-    assert(it != m_followTableCache.cend());
-    return it->second;
-}
-
-const FirstAndFollowReqHandler::FirstSetType& FirstAndFollowReqHandler::getFirst(const Symbol& symbol) {
-    static const FirstSetType emptyFirst;
-    auto it = m_firstTableCache.find(symbol);
-    if (it != m_firstTableCache.cend()) {
-        return it->second;
-    }
-
-    auto first = makeFirst(symbol);
-    if (first.empty()) {
-        return emptyFirst;
-    }
-
-    it = m_firstTableCache.insert(std::make_pair(symbol, first)).first;
-    assert(it != m_firstTableCache.cend());
-    return it->second;
-}
-
-FirstAndFollowReqHandler::FirstSetType FirstAndFollowReqHandler::makeFirst(const Symbol& symbol) {
-    FirstSetType first;
-    std::list<Symbol> context;
-    context.push_back(symbol);
-
-    while (!context.empty()) {
-        const auto searchSymbol = context.back();
-        context.pop_back();
-
-        if (searchSymbol.isTerminal()) {
-            first.insert(Terminal{ searchSymbol.getData() });
-            continue;
-        }
-
-        auto it = m_prodRules.find(NonTerminal{ searchSymbol.getData() });
-        if (it == m_prodRules.end()) {
-            assert(false);
-            return first;
-        }
-        
-        const auto& [_, prods] = *it;
-        for (auto prodIt = prods.cbegin(); prodIt != prods.cend(); ++prodIt) {
-            FirstSetType tmpFirst;
-            const Production& prod = *prodIt;
-            assert(!prod.isEmpty());
-
-            const DerivationType& firstDerivation = *prod.cbegin();
-            if (firstDerivation.isTerminal()) {
-                tmpFirst.insert(Terminal{ firstDerivation.getData() });
-            } else {
-                auto cacheIt = m_firstTableCache.find(firstDerivation);
-                if (cacheIt != m_firstTableCache.cend()) {
-                    tmpFirst.insert(cacheIt->second.begin(), cacheIt->second.end());
-                } else {
-                    context.push_back(static_cast<Symbol>(firstDerivation));
-                }
-            }
-
-            if (auto _it = tmpFirst.find(None);
-                _it != tmpFirst.end()) {
-                tmpFirst.erase(_it);
-
-                const auto nextSymbol = m_prodRules.findNextDerivation(searchSymbol);
-                if (nextSymbol.has_value()) {
-                    if (nextSymbol->isTerminal()) {
-                        tmpFirst.insert(*nextSymbol);
-                    } else {
-                        auto cacheIt = m_firstTableCache.find(*nextSymbol);
-                        if (cacheIt != m_firstTableCache.cend()) {
-                            tmpFirst.insert(cacheIt->second.begin(), cacheIt->second.end());
-                        } else {
-                            context.push_back(static_cast<Symbol>(*nextSymbol));
-                        }
-                    }
-                } else {
-                    tmpFirst.insert(None);
-                }
-
-                first.insert(tmpFirst.cbegin(), tmpFirst.cend());
-            }
-
-            first.insert(tmpFirst.cbegin(), tmpFirst.cend());
-        }
-    }
-    return first;
-}
-
-FirstAndFollowReqHandler::FollowSetType FirstAndFollowReqHandler::makeFollow(const Symbol& symbol) {
-    FollowSetType follow;
-    const auto nextSymbol = m_prodRules.findNextDerivation(symbol);
-    if (!nextSymbol.has_value()) {
-        follow.insert(End);
-        return follow;
-    }
-
-    const auto& first = getFirst(static_cast<Symbol>(*nextSymbol));
-    if (first.empty()) {
-        follow.insert(End);
-        return follow;
-    }
-
-    follow.insert(first.cbegin(), first.cend());
-    if (auto it = follow.find(None); it != follow.cend()) {
-        follow.erase(it);
-        follow.insert(End);
-    } 
-    return follow;
-}
-
-bool operator==(const FirstAndFollowReqHandler::FirstSetType& l, const FirstAndFollowReqHandler::FirstSetType& r) {
-    if (l.size() != r.size()) {
-        return false;
-    }
-
-    for (const auto& item : l) {
-        if (r.find(item) == r.cend()) {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 } //! namespace atom::cfg::grammar

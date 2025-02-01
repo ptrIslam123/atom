@@ -1,19 +1,91 @@
 #pragma once
 
-#include "include/utils/assertion.h"
-#include "include/cfg/symbols.h"
-
-#include <ostream>
+#include <string>
 #include <string_view>
+#include <ostream>
+#include <functional>
+#include <ostream>
 #include <vector>
 #include <span>
 #include <optional>
-#include <iterator>
-#include <unordered_map>
-#include <unordered_set>
-#include <functional>
-#include <type_traits>
 #include <cassert>
+
+namespace atom::cfg::grammar {
+
+/**
+ * (Context-Free Grammar, CFG) = {Non-terminal Symbols, Terminal Symbols, Start Symbol, Production Rules}
+ */
+class Symbol {
+public:
+    std::string_view getData() const;
+    std::string_view getData();
+
+    bool isTerminal() const;
+    bool isTerminal();
+
+    bool operator==(const Symbol& other) const;
+
+protected:
+    explicit Symbol(std::string_view data, bool isTerminal);
+
+private:
+    std::string m_data;
+    bool m_isTerminal;
+};
+
+class Terminal final : public Symbol {
+public:
+    explicit Terminal(std::string_view data);
+    explicit Terminal(const Symbol& symbol);
+
+    bool operator==(const Terminal& other) const;
+};
+
+class NonTerminal final : public Symbol {
+public:
+    explicit NonTerminal(std::string_view data);
+    explicit NonTerminal(const Symbol& symbol);
+
+    bool operator==(const NonTerminal& other) const;
+};
+
+constexpr struct{} Or;
+const Terminal None{"ε"};
+const Terminal End{ "$" };
+const NonTerminal S{"S"};
+
+std::ostream& operator<<(std::ostream& os, const Symbol& symbol);
+std::ostream& operator<<(std::ostream& os, const Terminal& terminal);
+std::ostream& operator<<(std::ostream& os, const NonTerminal& nonTerminal);
+
+} //! namespace atom::cfg::grammar
+
+namespace std {
+
+using namespace atom::cfg::grammar;
+
+template<>
+struct hash<Symbol> {
+    std::size_t operator()(const Symbol& symbol) const {
+        return std::hash<std::string_view>{}(symbol.getData());
+    }
+};
+
+template<>
+struct hash<Terminal> {
+    std::size_t operator()(const Terminal& symbol) const {
+        return std::hash<std::string_view>{}(symbol.getData());
+    }
+};
+
+template<>
+struct hash<NonTerminal> {
+    std::size_t operator()(const NonTerminal& symbol) const {
+        return std::hash<std::string_view>{}(symbol.getData());
+    }
+};
+
+} //! namespace std
 
 namespace atom::cfg::grammar {
 
@@ -148,27 +220,5 @@ inline ProductionRules& operator>>(ProductionRules& prodRules, const decltype(Or
     prodRules.pushBack(Or);
     return prodRules;
 }
-
-class FirstAndFollowReqHandler final {
-public:
-    using DerivationType = ProductionRules::DerivationType;
-    using FirstSetType = std::unordered_set<Symbol>;
-    using FollowSetType = std::unordered_set<Symbol>;
-
-    explicit FirstAndFollowReqHandler(ProductionRules& prodRules);
-
-    const FirstSetType& getFirst(const Symbol& symbol);
-    const FollowSetType& getFollow(const Symbol& symbol);
-
-private:
-    FirstSetType makeFirst(const Symbol& symbol);
-    FollowSetType makeFollow(const Symbol& symbol);
-
-    ProductionRules m_prodRules;
-    std::unordered_map<Symbol, FirstSetType> m_firstTableCache;
-    std::unordered_map<Symbol, FollowSetType> m_followTableCache;
-};
-
-bool operator==(const FirstAndFollowReqHandler::FirstSetType& l, const FirstAndFollowReqHandler::FirstSetType& r);
 
 } //! namespace atom::cfg::grammar

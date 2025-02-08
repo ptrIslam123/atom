@@ -94,6 +94,8 @@ public:
     using DerivationType = Symbol;
     using IteratorType = std::vector<DerivationType>::iterator;
     using ConstIteratorType = std::vector<DerivationType>::const_iterator;
+    using ReverseIteratorType = std::vector<DerivationType>::reverse_iterator;
+    using ConstReverseIteratorType = std::vector<DerivationType>::const_reverse_iterator;
 
     explicit Production(std::span<const DerivationType> derivations = {});
 
@@ -104,6 +106,12 @@ public:
     ConstIteratorType cbegin() const;
     ConstIteratorType cend() const;
     ConstIteratorType find(const DerivationType& derivation) const;
+
+    ReverseIteratorType rbegin();
+    ReverseIteratorType rend();
+
+    ConstReverseIteratorType crbegin() const;
+    ConstReverseIteratorType crend() const;
 
     void pushBack(const DerivationType& newDerivation);
 

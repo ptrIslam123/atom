@@ -51,7 +51,7 @@ public:
     using SymbolType = atom::cfg::grammar::Symbol;
     using TerminalType = atom::cfg::grammar::Terminal;
     using TokenType = T;
-    explicit Leaf(Node* parent, const SymbolType& symbol, const T& token): Node(parent, symbol), m_token(token) {}
+    explicit Leaf(Node* parent, const TerminalType& symbol, const T& token): Node(parent, symbol), m_token(token) {}
 
     const T& getToken() const { return m_token; }
     const T& getToken() { return m_token; }

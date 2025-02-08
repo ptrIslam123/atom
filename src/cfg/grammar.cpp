@@ -51,8 +51,8 @@ Production::Production(const std::span<const DerivationType> derivations): m_der
     }
 }
 
-Production::IteratorType Production::begin() { return IteratorType{ &m_derivations[0] }; }
-Production::IteratorType Production::end() { return IteratorType{ &m_derivations[0] + size() }; }
+Production::IteratorType Production::begin() { return m_derivations.begin(); }
+Production::IteratorType Production::end() { return m_derivations.end(); }
 Production::IteratorType Production::find(const DerivationType& derivation) {
     for (auto& item : m_derivations) {
         if (item == derivation) {
@@ -62,8 +62,8 @@ Production::IteratorType Production::find(const DerivationType& derivation) {
     return end();
 }
 
-Production::ConstIteratorType Production::cbegin() const { return ConstIteratorType{ &m_derivations[0] }; }
-Production::ConstIteratorType Production::cend() const { return ConstIteratorType{ &m_derivations[0] + size() }; }
+Production::ConstIteratorType Production::cbegin() const { return m_derivations.cbegin(); }
+Production::ConstIteratorType Production::cend() const { return m_derivations.cend(); }
 Production::ConstIteratorType Production::find(const DerivationType& derivation) const {
     for (auto& item : m_derivations) {
         if (item == derivation) {
@@ -72,6 +72,12 @@ Production::ConstIteratorType Production::find(const DerivationType& derivation)
     }
     return cend();
 }
+
+Production::ReverseIteratorType Production::rbegin() { return m_derivations.rbegin(); }
+Production::ReverseIteratorType Production::rend() { return m_derivations.rend(); }
+
+Production::ConstReverseIteratorType Production::crbegin() const { return m_derivations.crbegin(); }
+Production::ConstReverseIteratorType Production::crend() const { return m_derivations.crend(); }
 
 void Production::pushBack(const DerivationType& newDerivation) {
     m_derivations.push_back(newDerivation);

@@ -23,6 +23,14 @@ const Item::DerivationType& Item::getCurrentDerivation() const {
     return *it;
 }
 
+const Item::NonTerminalType& Item::getLeft() const noexcept(true) {
+    return m_left;
+}
+
+const Item::ProductionType& Item::getProduction() const noexcept(true) {
+    return m_production;
+}
+
 Item Item::shift() const noexcept {
     return Item{m_left, m_production, m_derivationIndex + 1};
 }
@@ -73,7 +81,8 @@ m_itemsClosureCachTable()
 const Items& ClosureAndGotoReqHandler::getGoto(const Items& items, const SymbolType& symbol) {
     Items newItems;
     for (const auto& item : items) {
-        if (item.getCurrentDerivation() == symbol) {
+        const auto& currentDerivation = item.getCurrentDerivation();
+        if (currentDerivation == symbol) {
             newItems.insert(item.shift());
         }
     }
@@ -81,7 +90,7 @@ const Items& ClosureAndGotoReqHandler::getGoto(const Items& items, const SymbolT
     if (!newItems.empty()) {
         return getClosure(newItems);
     } else {
-        ASSERTION(false, BadLR, "Could not find fit items: Invalid items or/and symbol")
+        ASSERTION(false, std::runtime_error, "")
     }
 }
 
@@ -133,7 +142,7 @@ Items ClosureAndGotoReqHandler::makeClosure(const Item& item) {
 
         if (!searchSymbol.isTerminal()) {
             auto it = m_prodRules.find(grammar::NonTerminal{searchSymbol});
-            ASSERTION(it != m_prodRules.cend(),BadLR, "Could not find productions for search symbol(Invalid grammar)")
+            ASSERTION(it != m_prodRules.cend(), BadLR, "Could not find productions for search symbol(Invalid grammar)")
             auto& [left, prods] = *it;
             for (auto& prod : prods) {
                 const auto& firstDerivation = *prod.begin();

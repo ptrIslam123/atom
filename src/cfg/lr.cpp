@@ -78,7 +78,7 @@ m_itemClosureCacheTable(),
 m_itemsClosureCachTable()
 {}
 
-const Items& ClosureAndGotoReqHandler::getGoto(const Items& items, const SymbolType& symbol) {
+ClosureAndGotoReqHandler::RequestResultType ClosureAndGotoReqHandler::requestGoto(const Items& items, const SymbolType& symbol) {
     Items newItems;
     for (const auto& item : items) {
         const auto& currentDerivation = item.getCurrentDerivation();
@@ -88,13 +88,13 @@ const Items& ClosureAndGotoReqHandler::getGoto(const Items& items, const SymbolT
     }
 
     if (!newItems.empty()) {
-        return getClosure(newItems);
+        return requestClosure(newItems);
     } else {
-        ASSERTION(false, std::runtime_error, "")
+        return std::nullopt;
     }
 }
 
-const Items& ClosureAndGotoReqHandler::getClosure(const Items& items) {
+ClosureAndGotoReqHandler::RequestResultType ClosureAndGotoReqHandler::requestClosure(const Items& items) {
     auto it = m_itemsClosureCachTable.find(items);
     if (it != m_itemsClosureCachTable.cend()) {
         return it->second;
@@ -106,7 +106,7 @@ const Items& ClosureAndGotoReqHandler::getClosure(const Items& items) {
     return it->second;
 }
 
-const Items& ClosureAndGotoReqHandler::getClosure(const Item& item) {
+ClosureAndGotoReqHandler::RequestResultType ClosureAndGotoReqHandler::requestClosure(const Item& item) {
     auto it = m_itemClosureCacheTable.find(item);
     if (it != m_itemClosureCacheTable.cend()) {
         return it->second;
@@ -121,8 +121,11 @@ const Items& ClosureAndGotoReqHandler::getClosure(const Item& item) {
 Items ClosureAndGotoReqHandler::makeClosure(const Items& items) {
     Items result = {items};
     for (const auto& item : items) {
-        const auto tmpItems = getClosure(item);
-        result.insert(tmpItems.begin(), tmpItems.end());
+        const auto& reqResult = requestClosure(item);
+        if (reqResult.has_value()) {
+            const Items& tmpItems = *reqResult;
+            result.insert(tmpItems.cbegin(), tmpItems.cend());
+        }
     }
     return result;
 }

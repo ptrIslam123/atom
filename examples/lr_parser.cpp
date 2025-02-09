@@ -14,7 +14,7 @@ Terminal TokenToTerminal(const char& s) {
     return Terminal{std::move(data)};
 }
 
-int main() {
+void test1() {
     /*
         S` -> S;
         S -> a B c;
@@ -40,16 +40,89 @@ int main() {
     */
 
     const Terminal a{"a"}, b{"b"}, c{"c"};
-    const NonTerminal S_{"S`"}, B{"B"};
-    const std::array inputString = {'a', /*'b',*/ 'c'};
+    const NonTerminal B{"B"};
+    const std::array inputString = {'a', 'b', 'c'};
 
     ProductionRules rules;
-    rules.newProduction(S_) >> S;
     rules.newProduction(S) >> a >> B >> c;
     rules.newProduction(B) >> b >> Or >> None;
 
     Parser<char> parser{std::move(rules), TokenToTerminal};
     auto root = parser.buildTree(inputString);
+    assert(root);
     std::cout << *root << std::endl;
+}
+
+void test2() {
+    /*
+        S` -> S;
+        S -> A B c;
+        A -> a | e;
+        B -> b | e;
+    */
+
+    const Terminal a{"a"}, b{"b"}, c{"c"};
+    const NonTerminal A{"A"}, B{"B"};
+    const std::array inputString = {/*'a',*/ /*'b',*/ 'c'};
+
+    ProductionRules rules;
+    rules.newProduction(S) >> A >> B >> c;
+    rules.newProduction(A) >> a >> Or >> None;
+    rules.newProduction(B) >> b >> Or >> None;
+
+    Parser<char> parser{std::move(rules), TokenToTerminal};
+    auto root = parser.buildTree(inputString);
+    assert(root);
+    std::cout << *root << std::endl;
+}
+
+void test3() {
+    /*
+        S -> A b;
+        A -> a A | e;
+    */
+    const Terminal a{"a"}, b{"b"};
+    const NonTerminal S{"S"}, A{"A"};
+    const std::array inputString = {'a', 'a', 'b'};
+
+    ProductionRules rules;
+    rules.newProduction(S) >> A >> b;
+    rules.newProduction(A) >> a >> A >> Or >> None;
+    Parser<char> parser{std::move(rules), TokenToTerminal};
+
+    auto root = parser.buildTree(inputString);
+    assert(root);
+    std::cout << *root << std::endl;
+}
+
+void test4() {
+    /*
+        S -> A B C;
+        A -> a | e;
+        B -> b | e;
+        C -> c | e;
+    */
+    const Terminal a{"a"}, b{"b"}, c{"c"};
+    const NonTerminal S{"S"}, A{"A"}, B{"B"}, C{"C"};
+    ProductionRules rules;
+    rules.newProduction(S) >> A >> B >> C;
+    rules.newProduction(A) >> a >> Or >> None;
+    rules.newProduction(B) >> b >> Or >> None;
+    rules.newProduction(C) >> c >> Or >> None;
+    Parser<char> parser{std::move(rules), TokenToTerminal};
+    {
+        const std::array inputString = {'a', 'b', 'c'};
+        auto root = parser.buildTree(inputString);
+        std::cout << *root << std::endl;
+    }
+    {
+        const std::array<char, 0> inputString = {};
+        auto root = parser.buildTree(inputString);
+        std::cout << *root << std::endl;
+    }
+}
+
+int main() {
+    test4();
     return 0;
 }

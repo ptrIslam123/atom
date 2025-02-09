@@ -53,6 +53,7 @@ constexpr struct{} Or;
 const Terminal None{"ε"};
 const Terminal End{ "$" };
 const NonTerminal S{"S"};
+const NonTerminal S_{"S`"};
 
 std::ostream& operator<<(std::ostream& os, const Symbol& symbol);
 std::ostream& operator<<(std::ostream& os, const Terminal& terminal);
@@ -201,6 +202,7 @@ public:
         assert(!currentProductions.isEmpty());
         currentProductions.pushBack(Production{});
     }
+    void pushBack(NonTerminal&& left, Productions&& productions);
 
     ConstIteratorType cbegin() const;
     ConstIteratorType cend() const;

@@ -60,7 +60,7 @@ private:
     T m_token;
 };
 
-
 std::ostream& operator<<(std::ostream& os, const Node& node);
+bool operator==(const Node& lhs, const Node& rhs);
 
 } //! namespace atom::ast

@@ -9,9 +9,10 @@
 #include <ostream>
 #include <sstream>
 #include <memory>
-#include <list>
+#include <vector>
 #include <unordered_set>
 #include <unordered_map>
+#include <cassert>
 
 namespace atom::cfg::lr {
 
@@ -94,6 +95,7 @@ public:
     using ProductionType = atom::cfg::grammar::Production;
     using DerivationType = ProductionType::DerivationType;
     using SymbolType = atom::cfg::grammar::Symbol;
+    using RequestResultType = std::optional<std::reference_wrapper<Items>>;
 
     explicit ClosureAndGotoReqHandler(ProductionRulesType& prodRules);
     ClosureAndGotoReqHandler(const ClosureAndGotoReqHandler& ) = delete;
@@ -101,9 +103,9 @@ public:
     ClosureAndGotoReqHandler& operator=(const ClosureAndGotoReqHandler& ) = delete;
     ClosureAndGotoReqHandler& operator=(ClosureAndGotoReqHandler&& ) noexcept = delete;
 
-    const Items& getClosure(const Items& items) noexcept(false);
-    const Items& getClosure(const Item& item) noexcept(false);
-    const Items& getGoto(const Items& items, const SymbolType& symbol) noexcept(false);
+    RequestResultType requestClosure(const Items& items);
+    RequestResultType requestClosure(const Item& item);
+    RequestResultType requestGoto(const Items& items, const SymbolType& symbol);
 
 private:
     Items makeClosure(const Item& item);
@@ -127,91 +129,145 @@ public:
 private:
     using TokenItType = typename std::span<const T>::iterator;
 
+    /*
+     * @brief GrammarAugmentation - Процесс преобразования исходной грамматики S→… в грамматику S′→S, где S′ является новым стартовым символом,
+     * называется "аугментацией грамматики"  (Grammar Augmentation).
+     */
+    static ProductionRulesType GrammarAugmentation(ProductionRulesType&& initialProdRules);
+
+    const Items& makeInitialItems();
+    void shiftSymbol(const Items& currentItems, grammar::Symbol&& currentSymbol);
+    void shift(const Items& currentItems);
+    void reduce(const Item& reducingItem);
+
     ProductionRulesType m_prodRules;
     TokenToTerminalFuncType m_tokenToTerminal;
     ClosureAndGotoReqHandler m_cgReqHandler;
+    std::span<const T> m_tokens;
+    std::span<const T>::size_type m_currentTokenIndex;
+    std::vector<std::unique_ptr<ast::Node>> m_nodeContext;
+    std::vector<Items> m_itemsContext;
 };
 
 template<typename T, typename A>
 Parser<T, A>::Parser(ProductionRulesType&& prodRules, TokenToTerminalFuncType tokenToTerminal):
-m_prodRules(std::move(prodRules)),
+m_prodRules(GrammarAugmentation(std::move(prodRules))),
 m_tokenToTerminal(tokenToTerminal),
-m_cgReqHandler(m_prodRules)
+m_cgReqHandler(m_prodRules),
+m_tokens(),
+m_currentTokenIndex(0),
+m_nodeContext(),
+m_itemsContext()
 {}
+
+template<typename T, typename A>
+const Items& Parser<T, A>::makeInitialItems() {
+    auto& [leftS_, prodsS_] = *m_prodRules.begin();
+    auto result = m_cgReqHandler.requestClosure(Item{leftS_, *prodsS_.begin()});
+    ASSERTION(result.has_value(), BadLR, "")
+    return *result;
+}
+
+template<typename T, typename A>
+void Parser<T, A>::shiftSymbol(const Items& currentItems, grammar::Symbol&& currentSymbol) {
+    using namespace grammar;
+    using namespace ast;
+    // update states context(add the new state)
+    {
+        ClosureAndGotoReqHandler::RequestResultType result;
+        for (auto i = 0; i < 2; ++i) {
+            result = m_cgReqHandler.requestGoto(currentItems, currentSymbol);
+            if (result.has_value()) {
+                break;
+            } else {
+                // we try to use e item in case the first goto request failed as default!
+                currentSymbol = None;
+            }
+        }
+        ASSERTION(result.has_value(), BadLR, "")
+        m_itemsContext.push_back(*result);
+    }
+    // update symbols context(add the new symbol or e)
+    {
+        if (currentSymbol != None) {
+            auto newNode = std::make_unique<Leaf<T>>(nullptr, Terminal{currentSymbol}, *(m_tokens.begin() + m_currentTokenIndex));
+            m_nodeContext.push_back(std::move(newNode));
+            ++m_currentTokenIndex;
+        } else {
+            auto newNode = std::make_unique<Node>(nullptr, None);
+            m_nodeContext.push_back(std::move(newNode));
+        }
+    }
+}
+
+template<typename T, typename A>
+void Parser<T, A>::shift(const Items& currentItems) {
+    using namespace grammar;
+    auto currentTokenIt = m_tokens.begin() + m_currentTokenIndex;
+    if (currentTokenIt != m_tokens.end()) {
+        shiftSymbol(currentItems, m_tokenToTerminal(*currentTokenIt));
+    } else {
+        shiftSymbol(currentItems, Symbol{None});
+    }
+}
+
+template<typename T, typename A>
+void Parser<T, A>::reduce(const Item& reducingItem) {
+    using namespace grammar;
+    using namespace ast;
+    const auto& reducingProduction = reducingItem.getProduction();
+    ASSERTION(reducingProduction.size() <= m_nodeContext.size(), BadLR, "")
+    ASSERTION(reducingProduction.size() <= m_itemsContext.size(), BadLR, "")
+
+    auto newRootNode = std::make_unique<Node>(nullptr, reducingItem.getLeft());
+    for (auto it = reducingProduction.crbegin(); it != reducingProduction.crend(); ++it) {
+        auto node = std::move(m_nodeContext.back());
+        ASSERTION(node->getSymbol() == *it, BadLR, "")
+
+        node->setParent(newRootNode.get());
+        newRootNode->addChild(std::move(node));
+
+        m_nodeContext.pop_back();
+        m_itemsContext.pop_back();
+    }
+    m_nodeContext.push_back(std::move(newRootNode));
+
+    ASSERTION(!m_itemsContext.empty(), BadLR, "")
+    auto result = m_cgReqHandler.requestGoto(m_itemsContext.back(), m_nodeContext.back()->getSymbol());
+    ASSERTION(result.has_value(), BadLR, "")
+    m_itemsContext.push_back(*result);
+}
 
 template<typename T, typename A>
 std::unique_ptr<atom::ast::Node> Parser<T, A>::buildTree(const std::span<const T> tokens)
 {
     using namespace grammar;
-    if (tokens.empty()) {
-        return std::unique_ptr<ast::Node>();
-    }
-
-    auto currentTokenIt = tokens.begin();
-    std::list<std::unique_ptr<ast::Node>> nodeContext;
-    std::list<Items> itemsContext;
-    {
-        auto& [leftS_, prodsS_] = *m_prodRules.begin();
-        const auto& startItems = m_cgReqHandler.getClosure(Item{leftS_, *prodsS_.begin()});
-        itemsContext.push_back(startItems);
-    }
+    m_nodeContext.clear();
+    m_itemsContext.clear();
+    m_tokens = tokens;
+    m_currentTokenIndex = 0;
+    m_itemsContext.push_back(makeInitialItems());
 
     do {
-        const auto& currentItems = itemsContext.back();
+        const auto& currentItems = m_itemsContext.back();
         if (currentItems.size() == 1 && currentItems.begin()->isReducing()) {
-            // reduce
-            const auto& reducingItem = *currentItems.begin();
-            const auto& reducingProduction = reducingItem.getProduction();
-            auto subRoot = std::make_unique<ast::Node>(nullptr, reducingItem.getLeft());
-            for (auto it = reducingProduction.crbegin(); it != reducingProduction.crend(); ++it) {
-                const auto& reducingDerivation = *it;
-                if (reducingDerivation == nodeContext.back()->getSymbol()) {
-                    auto node = std::move(nodeContext.back());
-                    node->setParent(subRoot.get());
-                    subRoot->addChild(std::move(node));
-                    nodeContext.pop_back();
-                } else {
-                    assert(false);
-                }
-            }
-            nodeContext.push_back(std::move(subRoot));
-            const auto& lastSymbol = nodeContext.back()->getSymbol();
-            auto stop = false;
-            do {
-                itemsContext.pop_back();
-                const auto& lastItems = itemsContext.back();
-                for (const auto& item : lastItems) {
-                    if (item.getCurrentDerivation() == lastSymbol) {
-                        stop = true;
-                        break;
-                    }
-                }
-            } while (!stop);
-            const auto& newItems = m_cgReqHandler.getGoto(itemsContext.back(), nodeContext.back()->getSymbol());
-            itemsContext.push_back(newItems);
+            reduce(*currentItems.begin());
         } else {
-            //shift
-            ASSERTION(currentTokenIt != tokens.end(), BadLR, "")
-            const auto currentSymbol = *currentTokenIt;
-            try {
-                const auto& newItems = m_cgReqHandler.getGoto(currentItems, m_tokenToTerminal(currentSymbol));
-                // chec newItems
-                itemsContext.push_back(newItems);
-
-                nodeContext.push_back(
-                    std::make_unique<ast::Leaf<T>>(nullptr, m_tokenToTerminal(currentSymbol), currentSymbol)
-                );
-                ++currentTokenIt;
-            } catch (...) {
-                const auto& newItems = m_cgReqHandler.getGoto(currentItems, None);
-                itemsContext.push_back(newItems);
-                nodeContext.push_back(
-                    std::make_unique<ast::Node>(nullptr, None)
-                );
-            }
+            shift(currentItems);
         }
-    } while (!nodeContext.empty() && nodeContext.back()->getSymbol() != S);
-    return std::move(nodeContext.back());
+    } while (!m_nodeContext.empty() && m_nodeContext.back()->getSymbol() != S);
+    return std::move(m_nodeContext.back());
+}
+
+template<typename T, typename A>
+Parser<T, A>::ProductionRulesType Parser<T, A>::GrammarAugmentation(ProductionRulesType&& initialProdRules) {
+    using namespace grammar;
+    ProductionRulesType newProdRules;
+    newProdRules.newProduction(S_) >> initialProdRules.begin()->first;
+    for (auto&& [left, prods] : initialProdRules) {
+        newProdRules.pushBack(std::move(left), std::move(prods));
+    }
+    return newProdRules;
 }
 
 } //! namespace atom::cfg::lr

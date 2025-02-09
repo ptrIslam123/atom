@@ -1,5 +1,7 @@
 #include "include/cfg/node.h"
 
+#include <sstream>
+
 namespace {
 
 using namespace atom::ast;
@@ -60,6 +62,14 @@ std::ostream& Node::operator<<(std::ostream& os) const
 
 std::ostream& operator<<(std::ostream& os, const Node& node) {
     return node.operator<<(os);
+}
+
+bool operator==(const Node& lhs, const Node& rhs) {
+    //! I think there is better way for comparing two nodes.
+    std::stringstream ss1, ss2;
+    ss1 << lhs;
+    ss2 << rhs;
+    return ss1.str() == ss2.str();
 }
 
 } //! namespace atom::ast

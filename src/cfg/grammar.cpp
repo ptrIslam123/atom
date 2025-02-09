@@ -284,6 +284,10 @@ void ProductionRules::pushBack(const Symbol& symbol) {
     currentProduction.pushBack(symbol);
 }
 
+void ProductionRules::pushBack(NonTerminal&& left, Productions&& productions) {
+    m_rules.emplace_back(std::move(left), std::move(productions));
+}
+
 std::optional<ProductionRules::DerivationType> ProductionRules::findNextDerivation(const DerivationType& derivation) {
     for (const auto& [_, prods] : m_rules) {
         for (auto it = prods.cbegin(); it != prods.cend(); ++it) {

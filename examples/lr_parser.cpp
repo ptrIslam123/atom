@@ -122,7 +122,30 @@ void test4() {
     }
 }
 
+void test5() {
+    /*
+        S -> a S b | ε
+    */
+
+    // a^n b^n (ab, aabb, aaabbb)
+
+    const Terminal a{"a"}, b{"b"};
+    ProductionRules rules;
+    rules.newProduction(S) >> a >> S >>  b >> Or >> None;
+    Parser<char> parser{std::move(rules), TokenToTerminal};
+    {
+        const std::array inputString = {'a', 'b'};
+        auto root = parser.buildTree(inputString);
+        std::cout << *root << std::endl;
+    }
+    {
+        const std::array inputString = {'a', 'a', 'b', 'b'};
+        auto root = parser.buildTree(inputString);
+        std::cout << *root << std::endl;
+    }
+}
+
 int main() {
-    test4();
+    test5();
     return 0;
 }

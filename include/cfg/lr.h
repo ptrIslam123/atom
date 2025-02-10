@@ -139,6 +139,7 @@ private:
     void shiftSymbol(const Items& currentItems, grammar::Symbol&& currentSymbol);
     void shift(const Items& currentItems);
     void reduce(const Item& reducingItem);
+    bool isStopAnalysis() const;
 
     ProductionRulesType m_prodRules;
     TokenToTerminalFuncType m_tokenToTerminal;
@@ -159,6 +160,12 @@ m_currentTokenIndex(0),
 m_nodeContext(),
 m_itemsContext()
 {}
+
+template<typename T, typename A>
+bool Parser<T, A>::isStopAnalysis() const {
+    return (m_tokens.begin() + m_currentTokenIndex == m_tokens.end()) &&
+           (m_nodeContext.size() == 1 && m_nodeContext.back()->getSymbol() == grammar::S);
+}
 
 template<typename T, typename A>
 const Items& Parser<T, A>::makeInitialItems() {
@@ -255,7 +262,11 @@ std::unique_ptr<atom::ast::Node> Parser<T, A>::buildTree(const std::span<const T
         } else {
             shift(currentItems);
         }
-    } while (!m_nodeContext.empty() && m_nodeContext.back()->getSymbol() != S);
+        ASSERTION(!m_nodeContext.empty(), BadLR, "")
+    } while(!isStopAnalysis());
+
+    ASSERTION(m_nodeContext.size() == 1 && m_nodeContext.back()->getSymbol() == S, BadLR, "")
+    ASSERTION(m_tokens.begin() + m_currentTokenIndex == m_tokens.end(), BadLR, "")
     return std::move(m_nodeContext.back());
 }
 

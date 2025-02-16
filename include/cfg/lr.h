@@ -3,6 +3,7 @@
 
 #include "include/cfg/grammar.h"
 #include "include/cfg/node.h"
+#include "include/cfg/ll.h"
 #include "include/utils/assertion.h"
 
 #include <functional>
@@ -34,9 +35,10 @@ public:
 
     explicit Item(NonTerminalType& left, ProductionType& production, IndexType derivationIndex = 0);
 
-    const DerivationType& getCurrentDerivation() const noexcept(false);
-    const NonTerminalType& getLeft() const noexcept(true);
-    const ProductionType& getProduction() const noexcept(true);
+    const DerivationType& getCurrentDerivation() const;
+    const NonTerminalType& getLeft() const;
+    const ProductionType& getProduction() const;
+    IndexType getDerivationIndex() const;
     Item shift() const noexcept(true);
     bool isReducing() const noexcept(true);
 
@@ -95,7 +97,7 @@ public:
     using ProductionType = atom::cfg::grammar::Production;
     using DerivationType = ProductionType::DerivationType;
     using SymbolType = atom::cfg::grammar::Symbol;
-    using RequestResultType = std::optional<std::reference_wrapper<Items>>;
+    using RequestResultType = std::optional<std::reference_wrapper<const Items>>;
 
     explicit ClosureAndGotoReqHandler(ProductionRulesType& prodRules);
     ClosureAndGotoReqHandler(const ClosureAndGotoReqHandler& ) = delete;
@@ -106,6 +108,7 @@ public:
     RequestResultType requestClosure(const Items& items);
     RequestResultType requestClosure(const Item& item);
     RequestResultType requestGoto(const Items& items, const SymbolType& symbol);
+    RequestResultType requestGoto(const Item& item, const SymbolType& symbol);
 
 private:
     Items makeClosure(const Item& item);
@@ -116,14 +119,20 @@ private:
     std::unordered_map<Items, Items> m_itemsClosureCachTable;
 };
 
+template<typename T>
+std::optional<std::reference_wrapper<const Item>> FindReducingItem(
+    std::span<const T> tokens,
+    const Items& items,
+    ll::FirstAndFollowReqHandler& ffReqHandler
+);
+
 template<typename T, typename A = std::allocator<T>>
 class Parser final {
 public:
     using SymbolType = atom::cfg::grammar::Symbol;
     using ProductionRulesType = atom::cfg::grammar::ProductionRules;
-    using TokenToTerminalFuncType = atom::cfg::grammar::Terminal(*)(const T&);
 
-    explicit Parser(ProductionRulesType&& prodRules, TokenToTerminalFuncType tokenToTerminal);
+    explicit Parser(ProductionRulesType&& prodRules);
     std::unique_ptr<atom::ast::Node> buildTree(std::span<const T> tokens);
 
 private:
@@ -136,36 +145,31 @@ private:
     static ProductionRulesType GrammarAugmentation(ProductionRulesType&& initialProdRules);
 
     const Items& makeInitialItems();
-    void shiftSymbol(const Items& currentItems, grammar::Symbol&& currentSymbol);
-    void shift(const Items& currentItems);
+    const Item& findCurrentItem(const Items& items);
+    void shiftSymbol(const Item& currentItem, grammar::Symbol&& currentSymbol);
+    void shift(const Item& currentItem);
     void reduce(const Item& reducingItem);
     bool isStopAnalysis() const;
 
     ProductionRulesType m_prodRules;
-    TokenToTerminalFuncType m_tokenToTerminal;
-    ClosureAndGotoReqHandler m_cgReqHandler;
-    std::span<const T> m_tokens;
-    std::span<const T>::size_type m_currentTokenIndex;
+    lr::ClosureAndGotoReqHandler m_cgReqHandler;
+    ll::FirstAndFollowReqHandler m_ffReqHandler;
     std::vector<std::unique_ptr<ast::Node>> m_nodeContext;
     std::vector<Items> m_itemsContext;
+    std::span<const T> m_tokens;
+    std::span<const T>::size_type m_currentTokenIndex;
 };
 
 template<typename T, typename A>
-Parser<T, A>::Parser(ProductionRulesType&& prodRules, TokenToTerminalFuncType tokenToTerminal):
+Parser<T, A>::Parser(ProductionRulesType&& prodRules):
 m_prodRules(GrammarAugmentation(std::move(prodRules))),
-m_tokenToTerminal(tokenToTerminal),
 m_cgReqHandler(m_prodRules),
-m_tokens(),
-m_currentTokenIndex(0),
+m_ffReqHandler(m_prodRules),
 m_nodeContext(),
-m_itemsContext()
+m_itemsContext(),
+m_tokens(),
+m_currentTokenIndex(0)
 {}
-
-template<typename T, typename A>
-bool Parser<T, A>::isStopAnalysis() const {
-    return (m_tokens.begin() + m_currentTokenIndex == m_tokens.end()) &&
-           (m_nodeContext.size() == 1 && m_nodeContext.back()->getSymbol() == grammar::S);
-}
 
 template<typename T, typename A>
 const Items& Parser<T, A>::makeInitialItems() {
@@ -176,14 +180,20 @@ const Items& Parser<T, A>::makeInitialItems() {
 }
 
 template<typename T, typename A>
-void Parser<T, A>::shiftSymbol(const Items& currentItems, grammar::Symbol&& currentSymbol) {
+bool Parser<T, A>::isStopAnalysis() const {
+    return (m_tokens.begin() + m_currentTokenIndex == m_tokens.end()) &&
+           (m_nodeContext.size() == 1 && m_nodeContext.back()->getSymbol() == grammar::S);
+}
+
+template<typename T, typename A>
+void Parser<T, A>::shiftSymbol(const Item& currentItem, grammar::Symbol&& currentSymbol) {
     using namespace grammar;
     using namespace ast;
     // update states context(add the new state)
     {
         ClosureAndGotoReqHandler::RequestResultType result;
         for (auto i = 0; i < 2; ++i) {
-            result = m_cgReqHandler.requestGoto(currentItems, currentSymbol);
+            result = m_cgReqHandler.requestGoto(currentItem, currentSymbol);
             if (result.has_value()) {
                 break;
             } else {
@@ -208,13 +218,13 @@ void Parser<T, A>::shiftSymbol(const Items& currentItems, grammar::Symbol&& curr
 }
 
 template<typename T, typename A>
-void Parser<T, A>::shift(const Items& currentItems) {
+void Parser<T, A>::shift(const Item& currentItem) {
     using namespace grammar;
     auto currentTokenIt = m_tokens.begin() + m_currentTokenIndex;
     if (currentTokenIt != m_tokens.end()) {
-        shiftSymbol(currentItems, m_tokenToTerminal(*currentTokenIt));
+        shiftSymbol(currentItem, TokenToTerminal<T>(*currentTokenIt));
     } else {
-        shiftSymbol(currentItems, Symbol{None});
+        shiftSymbol(currentItem, Symbol{None});
     }
 }
 
@@ -257,10 +267,11 @@ std::unique_ptr<atom::ast::Node> Parser<T, A>::buildTree(const std::span<const T
 
     do {
         const auto& currentItems = m_itemsContext.back();
-        if (currentItems.size() == 1 && currentItems.begin()->isReducing()) {
-            reduce(*currentItems.begin());
+        auto currentItem = findCurrentItem(currentItems);
+        if (!currentItem.isReducing()) {
+            shift(currentItem);
         } else {
-            shift(currentItems);
+            reduce(currentItem);
         }
         ASSERTION(!m_nodeContext.empty(), BadLR, "")
     } while(!isStopAnalysis());
@@ -271,9 +282,75 @@ std::unique_ptr<atom::ast::Node> Parser<T, A>::buildTree(const std::span<const T
 }
 
 template<typename T, typename A>
+const Item& Parser<T, A>::findCurrentItem(const Items& items) {
+    ASSERTION(false, BadLR, "TODO!")
+    // using namespace grammar;
+    // std::vector<std::reference_wrapper<const Item>> fitItems;
+    // fitItems.reserve(items.size());
+    // for (const auto& item : items) {
+    //     fitItems.push_back(item);
+    // }
+
+    // auto offset = 0;
+    // auto changed = true;
+    // while (fitItems.size() > 1 || !changed) {
+    //     changed = false;
+    //     for (auto it = fitItems.begin(); it != fitItems.end(); ++it) {
+    //         const Item& item = *it;
+    //         const auto& production = item.getProduction();
+    //         auto derivationIt = production.cbegin() + item.getDerivationIndex() + offset;
+    //         if (derivationIt == production.cend()) {
+    //             continue;
+    //         }
+
+    //         const auto& derivation = *derivationIt;
+    //         auto tokenIt = m_tokens.begin() + m_currentTokenIndex + offset;
+    //         if (tokenIt == m_tokens.end()) {
+    //             const auto& first = m_ffReqHandler.requestFirst(derivation);
+    //             auto follow = m_ffReqHandler.requestFollow(derivation);
+    //             ASSERTION(!first.empty() && !follow.empty(), BadLR, "")
+
+    //             if (!first.contains(None) || !follow.contains(End)) {
+    //                 fitItems.erase(it);
+    //                 changed = true;
+    //             }
+    //             continue;
+    //         }
+
+    //         const auto& token = *tokenIt;
+    //         const auto& first = m_ffReqHandler.requestFirst(derivation);
+    //         ASSERTION(!first.empty(), BadLR, "")
+    //         if (!first.contains(TokenToTerminal<T>(token))) {
+    //             fitItems.erase(it);
+    //             changed = true;
+    //         }
+    //     }
+    //     ++offset;
+    // }
+
+    // ASSERTION(!fitItems.empty(), BadLR, "")
+
+    // if (fitItems.size() == 1) {
+    //     return fitItems[0];
+    // }
+
+    // Item::IndexType maxIndex = 0;
+    // decltype(fitItems)::const_iterator maxItemIt = fitItems.cend();
+    // for (auto it = fitItems.cbegin(); it != fitItems.cend(); ++it) {
+    //     const Item& fitItem  = *it;
+    //     if (fitItem.getDerivationIndex() > maxIndex) {
+    //         maxItemIt = it;
+    //     }
+    // }
+    // assert(maxItemIt != fitItems.cend());
+    // return *maxItemIt;
+}
+
+template<typename T, typename A>
 Parser<T, A>::ProductionRulesType Parser<T, A>::GrammarAugmentation(ProductionRulesType&& initialProdRules) {
     using namespace grammar;
     ProductionRulesType newProdRules;
+    ASSERTION(!initialProdRules.isEmpty(), BadLR, "")
     newProdRules.newProduction(S_) >> initialProdRules.begin()->first;
     for (auto&& [left, prods] : initialProdRules) {
         newProdRules.pushBack(std::move(left), std::move(prods));

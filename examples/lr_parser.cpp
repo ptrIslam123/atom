@@ -8,12 +8,6 @@ using namespace atom::cfg::grammar;
 using namespace atom::cfg::lr;
 using namespace atom::ast;
 
-Terminal TokenToTerminal(const char& s) {
-    std::string data;
-    data.push_back(s);
-    return Terminal{std::move(data)};
-}
-
 void test1() {
     /*
         S` -> S;
@@ -47,7 +41,7 @@ void test1() {
     rules.newProduction(S) >> a >> B >> c;
     rules.newProduction(B) >> b >> Or >> None;
 
-    Parser<char> parser{std::move(rules), TokenToTerminal};
+    Parser<char> parser{std::move(rules)};
     auto root = parser.buildTree(inputString);
     assert(root);
     std::cout << *root << std::endl;
@@ -70,7 +64,7 @@ void test2() {
     rules.newProduction(A) >> a >> Or >> None;
     rules.newProduction(B) >> b >> Or >> None;
 
-    Parser<char> parser{std::move(rules), TokenToTerminal};
+    Parser<char> parser{std::move(rules)};
     auto root = parser.buildTree(inputString);
     assert(root);
     std::cout << *root << std::endl;
@@ -88,7 +82,7 @@ void test3() {
     ProductionRules rules;
     rules.newProduction(S) >> A >> b;
     rules.newProduction(A) >> a >> A >> Or >> None;
-    Parser<char> parser{std::move(rules), TokenToTerminal};
+    Parser<char> parser{std::move(rules)};
 
     auto root = parser.buildTree(inputString);
     assert(root);
@@ -109,7 +103,7 @@ void test4() {
     rules.newProduction(A) >> a >> Or >> None;
     rules.newProduction(B) >> b >> Or >> None;
     rules.newProduction(C) >> c >> Or >> None;
-    Parser<char> parser{std::move(rules), TokenToTerminal};
+    Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'a', 'b', 'c'};
         auto root = parser.buildTree(inputString);
@@ -132,7 +126,7 @@ void test5() {
     const Terminal a{"a"}, b{"b"};
     ProductionRules rules;
     rules.newProduction(S) >> a >> S >>  b >> Or >> None;
-    Parser<char> parser{std::move(rules), TokenToTerminal};
+    Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'a', 'b'};
         auto root = parser.buildTree(inputString);
@@ -145,7 +139,26 @@ void test5() {
     }
 }
 
+void test6() {
+    /*
+        S -> (E) | E | e;
+        E -> i + E | i;
+    */
+    const Terminal i{"i"}, plus{"+"}, openParen{"("}, closeParen{")"};
+    const NonTerminal E{"E"};
+
+    ProductionRules rules;
+    rules.newProduction(S) >> openParen >> E >> closeParen >> Or >> E >> Or >> None;
+    rules.newProduction(E) >> i >> plus >> E >> Or >> i;
+    Parser<char> parser{std::move(rules)};
+    {
+        const std::array inputString = {'i'};
+        auto root = parser.buildTree(inputString);
+        std::cout << *root << std::endl;
+    }
+}
+
 int main() {
-    test5();
+    test1();
     return 0;
 }

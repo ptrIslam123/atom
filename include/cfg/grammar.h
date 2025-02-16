@@ -231,4 +231,10 @@ inline ProductionRules& operator>>(ProductionRules& prodRules, const decltype(Or
     return prodRules;
 }
 
+template<typename T>
+Terminal TokenToTerminal(const T& token);
+
+template<>
+Terminal TokenToTerminal<char>(const char& s);
+
 } //! namespace atom::cfg::grammar

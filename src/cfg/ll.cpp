@@ -1,6 +1,15 @@
 #include "include/cfg/ll.h"
 
+#include <list>
+
 namespace atom::cfg::ll {
+
+BadLL::BadLL(std::string_view msg):
+    m_msg(msg) {}
+
+const char* BadLL::what() const noexcept {
+    return m_msg.data();
+}
 
 FirstAndFollowReqHandler::FirstAndFollowReqHandler(ProductionRulesType& prodRules):
 m_prodRules(prodRules),
@@ -8,7 +17,7 @@ m_firstCacheTable(),
 m_followCacheTable()
 {}
 
-const FirstAndFollowReqHandler::SymbolSetType& FirstAndFollowReqHandler::getFollow(const SymbolType& symbol) {
+const FirstAndFollowReqHandler::SymbolSetType& FirstAndFollowReqHandler::requestFollow(const SymbolType& symbol) {
     static const SymbolSetType emptyFollow;
     if (symbol.isTerminal()) {
         return emptyFollow;
@@ -29,7 +38,7 @@ const FirstAndFollowReqHandler::SymbolSetType& FirstAndFollowReqHandler::getFoll
     return it->second;
 }
 
-const FirstAndFollowReqHandler::SymbolSetType& FirstAndFollowReqHandler::getFirst(const SymbolType& symbol) {
+const FirstAndFollowReqHandler::SymbolSetType& FirstAndFollowReqHandler::requestFirst(const SymbolType& symbol) {
     static const SymbolSetType emptyFirst;
     auto it = m_firstCacheTable.find(symbol);
     if (it != m_firstCacheTable.cend()) {
@@ -123,7 +132,7 @@ FirstAndFollowReqHandler::SymbolSetType FirstAndFollowReqHandler::makeFollow(con
         return follow;
     }
 
-    const auto& first = getFirst(static_cast<SymbolType>(*nextSymbol));
+    const auto& first = requestFirst(static_cast<SymbolType>(*nextSymbol));
     if (first.empty()) {
         follow.insert(End);
         return follow;

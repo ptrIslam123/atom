@@ -23,12 +23,16 @@ const Item::DerivationType& Item::getCurrentDerivation() const {
     return *it;
 }
 
-const Item::NonTerminalType& Item::getLeft() const noexcept(true) {
+const Item::NonTerminalType& Item::getLeft() const {
     return m_left;
 }
 
-const Item::ProductionType& Item::getProduction() const noexcept(true) {
+const Item::ProductionType& Item::getProduction() const {
     return m_production;
+}
+
+Item::IndexType Item::getDerivationIndex() const {
+    return m_derivationIndex;
 }
 
 Item Item::shift() const noexcept {
@@ -77,6 +81,10 @@ m_prodRules(prodRules),
 m_itemClosureCacheTable(),
 m_itemsClosureCachTable()
 {}
+
+ClosureAndGotoReqHandler::RequestResultType ClosureAndGotoReqHandler::requestGoto(const Item& item, const SymbolType& symbol) {
+    return requestClosure(item.shift());
+}
 
 ClosureAndGotoReqHandler::RequestResultType ClosureAndGotoReqHandler::requestGoto(const Items& items, const SymbolType& symbol) {
     Items newItems;

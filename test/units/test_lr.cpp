@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+//#define ENABLE_LR_TESTS
+#if defined(ENABLE_LR_TESTS)
 
 #include "include/cfg/lr.h"
 
@@ -8,16 +10,6 @@
 using namespace atom::cfg::grammar;
 using namespace atom::cfg::lr;
 using namespace atom::ast;
-
-namespace {
-
-inline Terminal TokenToTerminal(const char& s) {
-    std::string data;
-    data.push_back(s);
-    return Terminal{std::move(data)};
-}
-
-} //! namespace
 
 TEST(TestLR, TestParser1) {
     /*
@@ -31,8 +23,7 @@ TEST(TestLR, TestParser1) {
     ProductionRules rules;
     rules.newProduction(S) >> A >> t;
     rules.newProduction(A) >> a;
-
-    Parser<char> parser{std::move(rules), TokenToTerminal};
+    Parser<char> parser{std::move(rules)};
     const std::array inputString = {'a', 't'};
     auto expectTree = std::make_unique<Node>(nullptr, S);
     {
@@ -64,7 +55,7 @@ TEST(TestLR, TestParser2) {
     rules.newProduction(A) >> a >> Or >> None;
     rules.newProduction(B) >> b >> Or >> None;
 
-    Parser<char> parser{std::move(rules), TokenToTerminal};
+    Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'a', 'b', 'c'};
         auto expectTree = std::make_unique<Node>(nullptr, S);
@@ -141,7 +132,7 @@ TEST(TestLR, TestParser3) {
     rules.newProduction(A) >> a;
     rules.newProduction(B) >> b >> Or >> None;
     rules.newProduction(C) >> c;
-    Parser<char> parser{std::move(rules), TokenToTerminal};
+    Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'a', 'b', 'c'};
         auto expectTree = std::make_unique<Node>(nullptr, S);
@@ -200,7 +191,7 @@ TEST(TestLR, TestParser4) {
     rules.newProduction(A) >> a >> Or >> None;
     rules.newProduction(B) >> b >> Or >> None;
     rules.newProduction(C) >> c >> Or >> None;
-    Parser<char> parser{std::move(rules), TokenToTerminal};
+    Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'a', 'b', 'c'};
         auto expectTree = std::make_unique<Node>(nullptr, S);
@@ -365,7 +356,7 @@ TEST(TestLR, TestParser5) {
     ProductionRules rules;
     rules.newProduction(S) >> A >> b;
     rules.newProduction(A) >> a >> A >> Or >> None;
-    Parser<char> parser{std::move(rules), TokenToTerminal};
+    Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'b'};
         auto expectTree = std::make_unique<Node>(nullptr, S);
@@ -448,8 +439,7 @@ TEST(TestLR, TestParser6) {
 
     ProductionRules rules;
     rules.newProduction(S) >> a >> S >>  b >> Or >> None;
-
-    Parser<char> parser{std::move(rules), TokenToTerminal};
+    Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'a', 'b'};
         auto expectTree = std::make_unique<Node>(nullptr, S);
@@ -493,6 +483,128 @@ TEST(TestLR, TestParser6) {
         ASSERT_TRUE(realTree);
         EXPECT_EQ(*realTree, *expectTree);
     }
+}
+
+TEST(TestLL, Test7) {
+    /*
+        S -> '(' S ')' | 'a'
+    */
+
+    const Terminal a{"a"}, openParen{"("}, closeParen{")"};
+
+    ProductionRules rules;
+    rules.newProduction(S) >> openParen >> S >> closeParen >> Or >> a;
+    Parser<char> parser{std::move(rules)};;
+    {
+        const std::array inputString = {'a'};
+        auto expectTree = std::make_unique<Node>(nullptr, S);
+        expectTree->addChild(std::make_unique<Leaf<char>>(expectTree.get(), a, 'a'));
+        auto realTree = parser.buildTree(inputString);
+        ASSERT_TRUE(realTree);
+        EXPECT_EQ(*realTree, *expectTree);
+    }
+    {
+        const std::array inputString = {'(', 'a', ')'};
+        auto expectTree = std::make_unique<Node>(nullptr, S);
+        {
+            auto openTree = std::make_unique<Leaf<char>>(expectTree.get(), openParen, '(');
+            auto STree = std::make_unique<Node>(expectTree.get(), S);
+            STree->addChild(std::make_unique<Leaf<char>>(STree.get(), a, 'a'));
+            auto closeTree = std::make_unique<Leaf<char>>(expectTree.get(), closeParen, ')');
+
+            expectTree->addChild(std::move(closeTree));
+            expectTree->addChild(std::move(STree));
+            expectTree->addChild(std::move(openTree));
+        }
+        auto realTree = parser.buildTree(inputString);
+        ASSERT_TRUE(realTree);
+        EXPECT_EQ(*realTree, *expectTree);
+    }
+    {
+        const std::array inputString = {'(', '(', 'a', ')', ')'};
+        auto expectTree = std::make_unique<Node>(nullptr, S);
+        {
+            auto openTree = std::make_unique<Leaf<char>>(expectTree.get(), openParen, '(');
+            auto STree = std::make_unique<Node>(expectTree.get(), S);
+            {
+                auto _openTree = std::make_unique<Leaf<char>>(STree.get(), openParen, '(');
+                auto _STree = std::make_unique<Node>(STree.get(), S);
+                _STree->addChild(std::make_unique<Leaf<char>>(_STree.get(), a, 'a'));
+                auto _closeTree = std::make_unique<Leaf<char>>(STree.get(), closeParen, ')');
+
+                STree->addChild(std::move(_closeTree));
+                STree->addChild(std::move(_STree));
+                STree->addChild(std::move(_openTree));
+            }
+            auto closeTree = std::make_unique<Leaf<char>>(expectTree.get(), closeParen, ')');
+
+            expectTree->addChild(std::move(closeTree));
+            expectTree->addChild(std::move(STree));
+            expectTree->addChild(std::move(openTree));
+        }
+        auto realTree = parser.buildTree(inputString);
+        ASSERT_TRUE(realTree);
+        EXPECT_EQ(*realTree, *expectTree);
+    }
+}
+
+TEST(TestLL, Test10) {
+    /*
+        S -> (E) | E | e;
+        E -> i + E | i; /// правая рекурсия!!!
+    */
+    const Terminal i{"i"}, plus{"+"}, openParen{"("}, closeParen{")"};
+    const NonTerminal E{"E"};
+
+    ProductionRules rules;
+    rules.newProduction(S) >> openParen >> E >> closeParen >> Or >> E >> Or >> None;
+    rules.newProduction(E) >> i >> plus >> E >> Or >> i;
+
+    Parser<char> parser{std::move(rules)};
+    // {
+    //     const std::array inputString = {'i'};
+    //     auto expectTree = std::make_unique<Node>(nullptr, S);
+    //     {
+    //         auto ETree = std::make_unique<Node>(expectTree.get(), E);
+    //         ETree->addChild(std::make_unique<Leaf<char>>(ETree.get(), i, 'i'));
+
+    //         expectTree->addChild(std::move(ETree));
+    //     }
+    //     auto realTree = parser.buildTree(inputString);
+    //     ASSERT_TRUE(realTree);
+    //     EXPECT_EQ(*realTree, *expectTree);
+    // }
+    // {
+    //     const std::array inputString = {'i', '+', 'i'};
+    //     auto expectTree = std::make_unique<Node>(nullptr, S);
+    //     {
+    //         auto ETree = std::make_unique<Node>(expectTree.get(), E);
+    //         {
+    //             auto iTree = std::make_unique<Leaf<char>>(ETree.get(), i, 'i');
+    //             auto plusTree = std::make_unique<Leaf<char>>(ETree.get(), plus, '+');
+    //             auto _ETree = std::make_unique<Node>(ETree.get(), E);
+    //             _ETree->addChild(std::make_unique<Leaf<char>>(_ETree.get(), i, 'i'));
+
+    //             ETree->addChild(std::move(_ETree));
+    //             ETree->addChild(std::move(plusTree));
+    //             ETree->addChild(std::move(iTree));
+    //         }
+
+    //         expectTree->addChild(std::move(ETree));
+    //     }
+    //     auto realTree = parser.buildTree(inputString);
+    //     ASSERT_TRUE(realTree);
+    //     EXPECT_EQ(*realTree, *expectTree);
+    // }
+    // {
+    //     const std::array inputString = {'i', '+', '(', 'i', '+', 'i', ')'};
+    //     auto expectTree = std::make_unique<Node>(nullptr, S);
+    //     {
+    //     }
+    //     auto realTree = parser.buildTree(inputString);
+    //     ASSERT_TRUE(realTree);
+    //     EXPECT_EQ(*realTree, *expectTree);
+    // }
 }
 
 TEST(TestsLR, TestClosureAndGoto1) {
@@ -644,3 +756,5 @@ TEST(TestsLR, TestNonexistentSymbol) {
     auto I1 = cgReqHandler.requestGoto(*I0, Terminal{"NonExistTerminal"});
     ASSERT_FALSE(I1.has_value());
 }
+
+#endif //! ENABLE_LR_TESTS

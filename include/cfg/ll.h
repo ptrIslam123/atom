@@ -5,14 +5,24 @@
 #include "include/cfg/node.h"
 #include "include/utils/assertion.h"
 
-#include <algorithm>
+#include <functional>
+#include <exception>
 #include <unordered_set>
 #include <span>
-#include <list>
+#include <vector>
 #include <memory>
 #include <cassert>
 
 namespace atom::cfg::ll {
+
+class BadLL final : public std::exception {
+public:
+    explicit BadLL(std::string_view msg);
+    virtual const char* what() const noexcept;
+
+private:
+    std::string m_msg;
+};
 
 class FirstAndFollowReqHandler final {
 public:
@@ -25,8 +35,8 @@ public:
 
     explicit FirstAndFollowReqHandler(ProductionRulesType& prodRules);
 
-    const SymbolSetType& getFirst(const SymbolType& symbol);
-    const SymbolSetType& getFollow(const SymbolType& symbol);
+    const SymbolSetType& requestFirst(const SymbolType& symbol);
+    const SymbolSetType& requestFollow(const SymbolType& symbol);
 
 private:
     SymbolSetType makeFirst(const SymbolType& symbol);
@@ -39,121 +49,182 @@ private:
 
 bool operator==(const FirstAndFollowReqHandler::SymbolSetType& l, const FirstAndFollowReqHandler::SymbolSetType& r);
 
-template<typename T>
+template<typename T, typename A = std::allocator<T>>
 class Parser final {
 public:
     using ProductionRulesType = atom::cfg::grammar::ProductionRules;
-    using TokenToTerminalType = atom::cfg::grammar::Terminal(*)(const T&);
 
-    explicit Parser(ProductionRulesType&& prodRules, TokenToTerminalType tokenToTerminal):
-    m_tokenToTerminal(tokenToTerminal),
-    m_prodRules(prodRules),
-    m_ffReqHandler(m_prodRules) {}
-
-    std::unique_ptr<atom::ast::Node> buildTree(std::span<const T> tokens) {
-        using namespace atom::cfg::grammar;
-        using namespace atom::ast;
-
-        m_tokens = tokens;
-        m_tokenIndex = 0;
-        m_isFirstCall = true;
-
-        ASSERTION(m_prodRules.cbegin() != m_prodRules.cend(), std::runtime_error, "Invalid grammar: Empty Productions Rules")
-
-        auto rootNode = std::make_unique<ast::Node>(nullptr, static_cast<Symbol>(m_prodRules.begin()->first));
-        m_context.push_back(std::make_pair(rootNode->getSymbol(), rootNode.get()));
-        
-        while (!m_context.empty()) {
-            const auto[symbol, currentRootNode] = m_context.back();
-            m_context.pop_back();
-
-            if (!symbol.isTerminal()) {
-                handleNonTerminal(currentRootNode, NonTerminal{ symbol.getData() });
-            } else {
-                handleTerminal(currentRootNode, Terminal{ symbol.getData() });
-            }
-        }
-
-        return std::move(rootNode);
-    }
+    explicit Parser(ProductionRulesType&& prodRules);
+    std::unique_ptr<atom::ast::Node> buildTree(std::span<const T> tokens);
 
 private:
-    void handleNonTerminal(ast::Node* currentRootNode, const grammar::NonTerminal& symbol) {
-        using namespace atom::cfg::grammar;
-        using namespace atom::ast;
+    using ProductionsType = grammar::Productions;
+    using ProductionType = grammar::Production;
+    using SymbolType = grammar::Symbol;
+    using TerminalType = grammar::Terminal;
+    using NonTerminalType = grammar::NonTerminal;
 
-        if (!m_isFirstCall) {
-            auto nonTerminalNode = std::make_unique<Node>(currentRootNode, symbol);
-            auto newRootNode = nonTerminalNode.get();
-            currentRootNode->addChild(std::move(nonTerminalNode));
-            currentRootNode = newRootNode;
-        }
-        m_isFirstCall = false;
+    void handleTerminal(const TerminalType& symbol, ast::Node* currentRootNode);
+    void handleNonTerminal(const NonTerminalType& symbol, ast::Node* currentRootNode);
+    const ProductionType& chooseFitProduction(const ProductionsType& productions);
 
-        std::vector<Production> fitProductions;
-        auto it = m_prodRules.find(NonTerminal{ symbol.getData() });
-        ASSERTION(it != m_prodRules.end(), std::runtime_error, "")
-        const Productions& productions = it->second;
-
-        for (auto prodIt = productions.cbegin(); prodIt != productions.cend(); ++prodIt) {
-            auto isProductionFit = true;
-            const auto& production = *prodIt;
-            for (auto i = 0; i < production.size(); ++i) {
-
-                auto tokenIt = m_tokens.begin() + m_tokenIndex + i;
-                const auto& terminal = (tokenIt != m_tokens.end() ? m_tokenToTerminal(*tokenIt) : End);
-                const auto& derivation = *(production.cbegin() + i);
-                const auto& fset = (derivation != None ? m_ffReqHandler.getFirst(derivation) : m_ffReqHandler.getFollow(symbol));
-                if (!fset.contains(terminal)) {
-                    isProductionFit = false;
-                    break;
-                }
-
-
-            }
-
-            if (isProductionFit) {
-                ASSERTION(fitProductions.empty(), std::runtime_error, "")
-                fitProductions.push_back(production);
-            }
-        }
-
-        ASSERTION(!fitProductions.empty(), std::runtime_error, "")
-
-        const Production& fitProduction = *fitProductions.cbegin();
-        const auto& derivations = fitProduction.getDerivations();
-        for (auto derivIt = derivations.crbegin(); derivIt != derivations.crend(); ++derivIt) {
-            m_context.push_back(std::make_pair(static_cast<Symbol>(*derivIt), currentRootNode));
-        }
-    }
-
-    void handleTerminal(ast::Node* currentRootNode, const grammar::Terminal& symbol) {
-        using namespace atom::cfg::grammar;
-        using namespace atom::ast;
-        if (symbol != None) {
-            auto tokenIt = m_tokens.begin() + m_tokenIndex;
-            ASSERTION(tokenIt != m_tokens.end(), std::runtime_error, "")
-
-            const auto terminal = m_tokenToTerminal(*tokenIt);
-            ASSERTION(terminal == symbol, std::runtime_error, "")
-
-            const auto& token = m_tokens[++m_tokenIndex];
-            auto terminalNode = std::make_unique<Leaf<T>>(currentRootNode, terminal, token);
-            currentRootNode->addChild(std::move(terminalNode));
-        } else {
-            auto terminalNode = std::make_unique<Node>(currentRootNode, None);
-            currentRootNode->addChild(std::move(terminalNode));
-        }
-    }
-
-    TokenToTerminalType m_tokenToTerminal;
     ProductionRulesType m_prodRules;
-    FirstAndFollowReqHandler m_ffReqHandler;
-    std::list<std::pair<grammar::Symbol, ast::Node*>> m_context;
+    FirstAndFollowReqHandler m_ffRequestHandler;
+    std::vector<std::pair<grammar::Symbol, ast::Node*>> m_context;
     std::span<const T> m_tokens;
-    int m_tokenIndex;
+    std::span<const T>::size_type m_currentTokenIndex;
     bool m_isFirstCall;
 };
+
+template<typename T, typename A>
+Parser<T, A>::Parser(ProductionRulesType&& prodRules):
+m_prodRules(std::move(prodRules)),
+m_ffRequestHandler(m_prodRules),
+m_context(),
+m_tokens(),
+m_currentTokenIndex(0)
+{}
+
+template<typename T, typename A>
+const Parser<T, A>::ProductionType& Parser<T, A>::chooseFitProduction(const ProductionsType& productions) {
+    using namespace grammar;
+    std::size_t maxProductionSize = 0;
+    Productions::ConstIteratorType defaultProduction = productions.cend();
+    std::vector<Productions::ConstIteratorType> fitProductions;
+    fitProductions.reserve(productions.size());
+    for (auto it = productions.cbegin(); it != productions.cend(); ++it) {
+        const Production& production = *it;
+        if (production.size() == 1 && *production.cbegin() == None && defaultProduction == productions.cend()) {
+            defaultProduction = it;
+        }
+        maxProductionSize = std::max(maxProductionSize, production.size());
+        fitProductions.push_back(it);
+    }
+
+    auto offset = 0;
+    for (; fitProductions.size() > 1 && offset < maxProductionSize; ++offset) {
+        for (auto it = fitProductions.cbegin(); it != fitProductions.cend(); ) {
+            const Production& production = **it;
+            auto derivationIt = production.cbegin() + offset;
+            {
+                const auto n = std::distance(derivationIt, production.cend());
+                if (n == 0 || n < 0) {
+                    ++it;
+                    continue;
+                }
+            }
+            const auto& derivation = *derivationIt;
+            auto tokenIt = m_tokens.begin() + m_currentTokenIndex + offset;
+            if (tokenIt != m_tokens.end()) {
+                const auto& first = m_ffRequestHandler.requestFirst(derivation);
+                ASSERTION(!first.empty(), BadLL, "")
+                if (!first.contains(TokenToTerminal<T>(*tokenIt))) {
+                    fitProductions.erase(it);
+                } else {
+                    ++it;
+                }
+            } else {
+                const auto& first = m_ffRequestHandler.requestFirst(derivation);
+                const auto& follow = m_ffRequestHandler.requestFollow(derivation);
+                ASSERTION(!first.empty() || !follow.empty(), BadLL, "")
+                if (!first.contains(None) || !follow.contains(End)) {
+                    fitProductions.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        }
+    }
+
+    ASSERTION(!fitProductions.empty() || defaultProduction != productions.cend(), BadLL, "")
+    if (fitProductions.empty() && defaultProduction != productions.cend()) {
+        fitProductions.push_back(defaultProduction);
+    }
+
+    int maxProdIndex = 0;
+    int maxProdSize = fitProductions[0]->size();
+    for (auto i = 1; i < fitProductions.size(); ++i) {
+        const Production& currentProd = *fitProductions[i];
+        if (currentProd.size() > maxProdSize) {
+            maxProdSize = currentProd.size();
+            maxProdIndex = i;
+        }
+    }
+    return *fitProductions[maxProdIndex];
+}
+
+template<typename T, typename A>
+void Parser<T, A>::handleTerminal(const TerminalType& symbol, ast::Node* currentRootNode) {
+    using namespace ast;
+    using namespace grammar;
+
+    ASSERTION(m_currentTokenIndex <= m_tokens.size(), BadLL, "")
+    auto tokenIt = m_tokens.begin() + m_currentTokenIndex;
+    if (symbol != None && tokenIt != m_tokens.end()) {
+        const auto& token = *tokenIt;
+        auto termianl = TokenToTerminal<T>(token);
+        ASSERTION(symbol == termianl, BadLL, "")
+
+        auto terminalNode = std::make_unique<Leaf<T>>(currentRootNode, termianl, token);
+        currentRootNode->addChild(std::move(terminalNode));
+        ++m_currentTokenIndex;
+    } else {
+        //ASSERTION(symbol == None && m_ffRequestHandler.requestFollow(symbol).contains(End), BadLL, "")
+        currentRootNode->addChild(std::make_unique<Node>(currentRootNode, None));
+    }
+}
+
+template<typename T, typename A>
+void Parser<T, A>::handleNonTerminal(const NonTerminalType& symbol, ast::Node* currentRootNode) {
+    using namespace ast;
+    using namespace grammar;
+
+    auto it = m_prodRules.find(symbol);
+    ASSERTION(it != m_prodRules.cend(), BadLL, "")
+
+    if (!m_isFirstCall) {
+        auto nonTerminalNode = std::make_unique<Node>(currentRootNode, symbol);
+        auto newRootNode = nonTerminalNode.get();
+        currentRootNode->addChild(std::move(nonTerminalNode));
+        currentRootNode = newRootNode;
+    }
+    m_isFirstCall = false;
+
+    const auto& [_, prods] = *it;
+    const Production& prod = chooseFitProduction(prods);
+    for (auto it = prod.crbegin(); it != prod.crend(); ++it) {
+        const Production::DerivationType& derivation = *it;
+        m_context.push_back({static_cast<SymbolType>(derivation), currentRootNode});
+    }
+}
+
+template<typename T, typename A>
+std::unique_ptr<atom::ast::Node> Parser<T, A>::buildTree(std::span<const T> tokens) {
+    using namespace ast;
+    using namespace grammar;
+
+    m_isFirstCall = true;
+    m_tokens = tokens;
+    m_currentTokenIndex = 0;
+    m_context.clear();
+
+    auto rootNode = std::make_unique<ast::Node>(nullptr, m_prodRules.begin()->first);
+    m_context.push_back({rootNode->getSymbol(), rootNode.get()});
+
+    do {
+        const auto[currentSymbol, currentRootNode] = m_context.back();
+        m_context.pop_back();
+
+        if (!currentSymbol.isTerminal()) {
+            handleNonTerminal(NonTerminal{currentSymbol}, currentRootNode);
+        } else {
+            handleTerminal(Terminal{currentSymbol}, currentRootNode);
+        }
+    } while (!m_context.empty());
+
+    ASSERTION(m_tokens.begin() + m_currentTokenIndex == m_tokens.end(), BadLL, "")
+    return rootNode;
+}
 
 } //! namespace atom::cfg::ll
 

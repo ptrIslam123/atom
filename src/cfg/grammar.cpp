@@ -36,8 +36,8 @@ bool NonTerminal::operator==(const NonTerminal& other) const {
 }
 
 std::ostream& operator<<(std::ostream& os, const Symbol& symbol) {
-    os << (symbol.isTerminal() ? "Terminal" : "NonTerminal");
-    os << "(" << symbol.getData() << ")";
+    //os << (symbol.isTerminal() ? "Terminal" : "NonTerminal");
+    os << "\"" << symbol.getData() << "\"";
     return os;
 }
 std::ostream& operator<<(std::ostream& os, const Terminal& terminal) { return os << static_cast<Symbol>(terminal); }
@@ -315,6 +315,13 @@ ProductionRules& operator>>(ProductionRules& prodRules, const Symbol& symbol) {
 
 std::ostream& operator<<(std::ostream& os, const ProductionRules& prodRules) {
     return prodRules.operator<<(os);
+}
+
+template<>
+Terminal TokenToTerminal<char>(const char& s) {
+    std::string data;
+    data.push_back(s);
+    return Terminal{std::move(data)};
 }
 
 } //! namespace atom::cfg::grammar

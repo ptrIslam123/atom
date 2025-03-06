@@ -1,20 +1,21 @@
 #pragma once
 
-#include "grammar.h"
+#include "include/cfg/grammar.h"
+#include "include/memory/smart_pointers/shared_ptr.h"
 
 #include <ostream>
 #include <vector>
-#include <memory>
 #include <cassert>
 
 namespace atom::ast {
 
 class Node {
 public:
-    using ChildsType = std::vector<std::unique_ptr<Node>>;
+    using NodePtrType = atom::memory::NonAtomicSharedPtr<Node>;
+    using ChildsType = std::vector<NodePtrType>;
     using SymbolType = atom::cfg::grammar::Symbol;
 
-    explicit Node(Node* parent = nullptr, const SymbolType& symbol = atom::cfg::grammar::None);
+    explicit Node(NodePtrType parent = NodePtrType{nullptr}, const SymbolType& symbol = atom::cfg::grammar::None);
 
     Node(Node&& ) noexcept = delete;
     Node(const Node& ) = delete;
@@ -24,14 +25,14 @@ public:
     const SymbolType& getSymbol() const;
     const SymbolType& getSymbol();
 
-    Node* const getParent() const;
-    Node* const getParent();
+    NodePtrType const getParent() const;
+    NodePtrType const getParent();
 
-    void addChild(std::unique_ptr<Node>&& child);
+    void addChild(NodePtrType child);
     void addChilds(ChildsType&& childs);
 
     void removeChilds();
-    void setParent(Node* parent);
+    void setParent(NodePtrType parent);
 
     const ChildsType& getChilds() const;
     const ChildsType& getChilds();
@@ -40,7 +41,7 @@ public:
 
 private:
 
-    Node* m_parent;
+    NodePtrType m_parent;
     SymbolType m_symbol;
     ChildsType m_childs;
 };
@@ -48,10 +49,12 @@ private:
 template<typename T>
 class Leaf final : public Node {
 public:
-    using SymbolType = atom::cfg::grammar::Symbol;
+    using NodePtrType = Node::NodePtrType;
+    using SymbolType = Node::SymbolType;
     using TerminalType = atom::cfg::grammar::Terminal;
     using TokenType = T;
-    explicit Leaf(Node* parent, const TerminalType& symbol, const T& token): Node(parent, symbol), m_token(token) {}
+
+    explicit Leaf(NodePtrType parent, const TerminalType& symbol, const T& token): Node(parent, symbol), m_token(token) {}
 
     const T& getToken() const { return m_token; }
     const T& getToken() { return m_token; }

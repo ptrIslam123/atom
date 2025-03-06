@@ -35,47 +35,29 @@ struct Foo final {
 
 using namespace atom::utils;
 
-// TEST(TestOwner, TestConstrcutor) {
-//     int i = 10;
-//     std::string str{"foo test string"};
-//     Owner<Foo> foo(i, str);
+TEST(TestOwner, TestOwner) {
+    Owner<Foo> foo{0, "test"};
+    foo.accessMutable([](Foo& _foo) {
+        EXPECT_EQ(_foo.m_iValue, 0);
+        EXPECT_EQ(_foo.m_sValue, "test");
 
-//     auto rFoo = foo.getMutableRef();
-//     rFoo.accessImmutable([i, str](const Foo& foo) {
-//         EXPECT_EQ(foo.m_iValue, i);
-//         EXPECT_EQ(foo.m_sValue, str);
-//     });
-// }
+        _foo.m_iValue = 10;
+        EXPECT_EQ(_foo.m_iValue, 10);
+    });
 
-// TEST(TestOwner, TestModification) {
-//     int i = 10;
-//     std::string str{"foo test string"};
-//     Owner<Foo> foo(i, str);
+    // foo.getValue(); // Compile error - OK!
 
-//     auto rFoo = foo.getMutableRef();
-//     rFoo.accessMutable([i, str](Foo& foo) {
-//         ++foo.m_iValue;
+    auto ref = foo.borrowMutable();
+    auto cpRef{ref};
+    auto cref = foo.borrowImmutable();
 
-//         EXPECT_EQ(foo.m_iValue, i + 1);
-//         EXPECT_EQ(foo.m_sValue, str);
-//     });
-// }
+    // ref = cref; // Compile error - OK!
+}
 
-// TEST(TestOwner, TestRefCopy) {
-//     int i = 10;
-//     std::string str{"foo test string"};
-//     Owner<Foo> foo(i, str);
+TEST(TestOwner, TestRef) {
+    Owner<int> owner{int{10}};
 
-//     auto rfoo1 = foo.getMutableRef();
-//     auto rfoo2 = foo.getMutableRef();
-
-//     rfoo1.accessImmutable([i, str](Ref<Foo>::ImmutableValueRefType foo) {
-//         EXPECT_EQ(foo.m_iValue, i);
-//         EXPECT_EQ(foo.m_sValue, str);
-//     });
-
-//     rfoo2.accessImmutable([i, str](Ref<Foo>::ImmutableValueRefType foo) {
-//         EXPECT_EQ(foo.m_iValue, i);
-//         EXPECT_EQ(foo.m_sValue, str);
-//     });
-// }
+    auto ref = owner.borrowMutable();
+    auto cref = owner.borrowImmutable();
+    EXPECT_EQ(ref.getValue(), cref.getValue());
+}

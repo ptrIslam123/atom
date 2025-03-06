@@ -1,5 +1,7 @@
-#ifndef VS_RESULT_H
-#define VS_RESULT_H
+#ifndef ATOM_RESULT_H
+#define ATOM_RESULT_H
+
+#include "include/utils/assertion.h"
 
 #include <utility>
 #include <variant>
@@ -24,7 +26,7 @@
 *                std::cout << "Division is failed" << std::endl;
 *            }
 */
-namespace utils {
+namespace atom::utils {
 
 template<typename T, typename E>
 class [[nodiscard]] Result final {
@@ -109,6 +111,75 @@ private:
     std::optional<ErrorType> m_data;
 };
 
+template<typename T>
+class Result<T, T> final {
+public:
+    using ResultType = T;
+    using ErrorType = T;
+
+    ResultType& operator*() && noexcept(false) = delete;
+    ResultType* operator->() && noexcept(false) = delete;
+    ResultType& value() && noexcept(false) = delete;
+    ErrorType& error() && noexcept(false) = delete;
+
+    Result(const Result&) = default;
+    Result& operator=(const Result& other) = default;
+    Result(Result&&) noexcept = default;
+    Result& operator=(Result&&) noexcept = default;
+
+    template<typename R>
+    static Result onOk(R&& result) {
+        return Result{std::forward<R>(result), true};
+    }
+
+    template<typename R>
+    static Result onError(R&& error) {
+        return Result{std::forward<R>(error), false};
+    }
+
+    bool isOk() const noexcept { return m_isOk; }
+
+    bool isError() const noexcept { return !isOk(); };
+
+    ResultType& operator*() & { return value(); }
+
+    const ResultType& operator*() const& { return value(); }
+
+    ResultType* operator->() & { return &value(); };
+
+    const ResultType* const operator->() const& { return &value(); }
+
+    ResultType& value() & {
+        ASSERTION(isOk(), std::runtime_error, "Attept to get value when error")
+        return m_value;
+    }
+
+    const ResultType& value() const& {
+        ASSERTION(isOk(), std::runtime_error, "Attept to get value when error")
+        return m_value;
+    }
+
+    ErrorType& error() & {
+        ASSERTION(isError(), std::runtime_error, "")
+        return m_value;
+    }
+
+    const ErrorType& error() const& {
+        ASSERTION(isError(), std::runtime_error, "")
+        return m_value;
+    }
+
+private:
+    template<typename R>
+    explicit Result(R&& value, bool isOk):
+    m_value(std::forward<R>(value)),
+    m_isOk(isOk)
+    {}
+
+    T m_value;
+    bool m_isOk;
+};
+
 template<typename T, typename E>
 template<typename R>
 Result<T, E>::Result(R&& r) :
@@ -180,12 +251,12 @@ const typename Result<T, E>::ErrorType& Result<T, E>::error() const& {
 template<typename E>
 template<typename R>
 Result<void, E>::Result(R&& error) :
-    m_data(std::forward<R>(error))
+m_data(std::forward<R>(error))
 {}
 
 template<typename E>
 Result<void, E>::Result() :
-    m_data(std::nullopt)
+m_data(std::nullopt)
 {}
 
 template<typename E>
@@ -222,6 +293,6 @@ const typename Result<void, E>::ErrorType& Result<void, E>::error() const& {
 template<typename T>
 using DefaultResult = Result<T, std::string>;
 
-} // namespace utils
+} // namespace atom::utils
 
-#endif //! VS_RESULT_H
+#endif //! ATOM_RESULT_H

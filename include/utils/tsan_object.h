@@ -15,103 +15,214 @@ namespace atom::utils::tsan {
 
 #ifndef NDEBUG
 
-namespace __details {
-
-template<typename T, typename C>
-class ImplMutableObject {
+/**
+ * @brief A runtime consistency checker for object access patterns.
+ *
+ * @tparam T Type of the wrapped value (must not be volatile)
+ * @tparam C Type used for timestamp counters (default: uint32_t)
+ *
+ * This class wraps an object and detects concurrent access violations during runtime.
+ * It does NOT provide thread safety, but rather verifies that no other thread
+ * interferes with the object while it's being accessed (reads or writes).
+ *
+ * The mechanism uses timestamp counters to track operations:
+ * - m_writers: Monitors write operations
+ * - m_readers: Monitors read operations
+ *
+ * When inconsistent access is detected (another thread interfering during an operation),
+ * the class will trigger a panic (crash) to surface the violation.
+ *
+ * Key characteristics:
+ * - NOT a thread-synchronization primitive
+ * - Pure runtime checking with no prevention
+ * - accessMutable/accessImmutable verify exclusive access during operations
+ * - Automatic timestamp generation for operation sequencing
+ * - Panics on detected consistency violations
+ * - Supports both mutable and immutable access patterns
+ *
+ * @warning Violations result in program termination via panic.
+ */
+template<typename T, typename C = std::uint32_t>
+class Object {
 public:
-    using ValueType = std::remove_cv_t<T>;
+    static_assert(!std::is_volatile_v<T>, "Volatile types are not supported");
+
+    //! The non-const, non-volatile version of the wrapped type
+    using ValueType = std::remove_const_t<T>;
+
+    //! Type used for timestamp counters
     using TimeStampType = C;
-    using MutableValueRefType = ValueType&;
-    using ImmutableValueRefType = const ValueType&;
 
+    //! Reference type for mutable access
+    using MutableRefType = ValueType&;
+
+    //! Reference type for immutable access
+    using ImmutableRefType = const ValueType&;
+
+    //! Maximum value before timestamp counter wraps around
     static constexpr auto TIMESTAMP_LIMIT = std::numeric_limits<TimeStampType>::max();
-    static constexpr auto INVALID_TIMESTAMP = TimeStampType{-1};
 
+    /**
+     * @brief Constructs the object with given arguments
+     * @tparam Arg Argument types
+     * @param arg Arguments forwarded to T's constructor
+     */
     template<typename ... Arg>
-    ImplMutableObject(Arg&& ... arg);
-    ImplMutableObject(const ImplMutableObject& other);
-    ImplMutableObject& operator=(const ImplMutableObject& other);
-    ImplMutableObject(ImplMutableObject&& other) noexcept;
-    ImplMutableObject& operator=(ImplMutableObject&& other) noexcept;
-    ~ImplMutableObject() = default;
+    Object(Arg&& ... arg);
 
+    /**
+     * @brief Copy constructor
+     * @param other Object to copy from
+     * @note Creates new timestamp counters but copies the value
+     */
+    Object(const Object& other);
+
+    /**
+     * @brief Copy assignment
+     * @param other Object to copy from
+     * @return Reference to this object
+     */
+    Object& operator=(const Object& other);
+
+    /**
+     * @brief Move constructor
+     * @param other Object to move from
+     * @note Creates new timestamp counters but copies the value (strong exception guarantee)
+     */
+    Object(Object&& other) noexcept;
+
+    /**
+     * @brief Move assignment
+     * @param other Object to move from
+     * @return Reference to this object
+     */
+    Object& operator=(Object&& other) noexcept;
+
+    ~Object() = default;
+
+    /**
+     * @brief Provides mutable access to the wrapped object
+     * @tparam Func Callable type
+     * @param f Callable that will receive T&
+     * @warning May panic if concurrent access is detected
+     *
+     * Usage:
+     * @code
+     * obj.accessMutable([](auto& value) {
+     *     value.modify();
+     * });
+     * @endcode
+     */
     template<typename Func>
-    void accessMutable(Func f);
+    void accessMutable(Func&& f);
 
+    /**
+     * @brief Provides immutable access to the wrapped object
+     * @tparam Func Callable type
+     * @param f Callable that will receive const T&
+     * @warning May panic if concurrent write is detected
+     *
+     * Usage:
+     * @code
+     * obj.accessImmutable([](const auto& value) {
+     *     value.inspect();
+     * });
+     * @endcode
+     */
     template<typename Func>
-    void accessImmutable(Func f) const;
+    void accessImmutable(Func&& f) const;
 
-    void setValue(const T& newValue);
-    void setValue(T&& newValue);
+    /**
+     * @brief Sets a new value (move version)
+     * @param newValue Value to move from
+     * @warning This method is available if T is trivial type
+     */
+    void setValue(ValueType newValue);
 
-    T getValue();
+    /**
+     * @brief Gets a copy of the current value
+     * @warning This method is available if T is trivial type
+     * @return Copy of the wrapped value
+     */
     T getValue() const;
 
 private:
+    /**
+     * @brief Generates a new timestamp from the counter
+     * @param counter Counter to use (m_writers or m_readers)
+     * @return New timestamp value
+     * @note Handles counter wrap-around when reaching TIMESTAMP_LIMIT
+     */
     TimeStampType genTimestamp(std::atomic<TimeStampType>& counter) const;
+
+    /**
+     * @brief Gets the current timestamp value
+     * @param counter Counter to check
+     * @return Current timestamp value
+     */
     TimeStampType getCurrentTimestamp(const std::atomic<TimeStampType>& counter) const;
 
-    mutable std::atomic<TimeStampType> m_writers;
-    mutable std::atomic<TimeStampType> m_readers;
-    T m_value;
+    mutable std::atomic<TimeStampType> m_writers; //! Counter for write operations
+    mutable std::atomic<TimeStampType> m_readers; //! Counter for read operations
+    T m_value; //! The wrapped value
 };
 
 
 template<typename T, typename C>
 template<typename ... Args>
-ImplMutableObject<T, C>::ImplMutableObject(Args&& ... args):
+Object<T, C>::Object(Args&& ... args):
 m_writers(0),
 m_readers(0),
 m_value(std::forward<Args>(args) ...)
 {}
 
 template<typename T, typename C>
-ImplMutableObject<T, C>::ImplMutableObject(const ImplMutableObject& other):
+Object<T, C>::Object(const Object& other):
 m_writers(0),
 m_readers(0),
 m_value(other.getValue())
 {}
 
 template<typename T, typename C>
-ImplMutableObject<T, C>& ImplMutableObject<T, C>::operator=(const ImplMutableObject& other)
+Object<T, C>::Object(Object&& other) noexcept:
+m_writers(0),
+m_readers(0),
+m_value(other.getValue())
+{}
+
+template<typename T, typename C>
+Object<T, C>& Object<T, C>::operator=(const Object& other)
 {
     setValue(other.getValue());
     return *this;
 }
 
 template<typename T, typename C>
-ImplMutableObject<T, C>::ImplMutableObject(ImplMutableObject&& other) noexcept:
-m_writers(0),
-m_readers(0),
-m_value(other.getValue()) {}
-
-template<typename T, typename C>
-ImplMutableObject<T, C>& ImplMutableObject<T, C>::operator=(ImplMutableObject&& other) noexcept {
+Object<T, C>& Object<T, C>::operator=(Object&& other) noexcept {
     setValue(other.getValue());
     return *this;
 }
 
 template<typename T, typename C>
 template<typename Func>
-void ImplMutableObject<T, C>::accessImmutable(Func f) const
+void Object<T, C>::accessImmutable(Func&& f) const
 {
-    static_assert(std::is_invocable_v<Func, ImmutableValueRefType>, "Func must accept const T&");
+    static_assert(std::is_invocable_v<Func, const ValueType&> && "Func must accept const T&");
     const auto oldW = genTimestamp(m_writers);
 
     f(m_value);
 
     const auto currentW = getCurrentTimestamp(m_writers);
 
-    PANIC(currentW == INVALID_TIMESTAMP);
     PANIC(oldW != currentW);
 }
 
 template<typename T, typename C>
 template<typename Func>
-void ImplMutableObject<T, C>::accessMutable(Func f)
+void Object<T, C>::accessMutable(Func&& f)
 {
-    static_assert(std::is_invocable_v<Func, MutableValueRefType>, "Func must accept T&");
+    static_assert((!std::is_const_v<T> && std::is_invocable_v<Func, ValueType&>) &&
+                  "T must be mutable and Func must accept T&");
     const auto oldW = genTimestamp(m_writers);
     const auto oldR = genTimestamp(m_readers);
 
@@ -120,29 +231,22 @@ void ImplMutableObject<T, C>::accessMutable(Func f)
     const auto currentW = getCurrentTimestamp(m_writers);
     const auto currentR = getCurrentTimestamp(m_readers);
 
-    PANIC(currentW == INVALID_TIMESTAMP);
-    PANIC(oldW != currentW && oldR == currentR);
+    PANIC(oldW != currentW || oldR != currentR);
 }
 
 template<typename T, typename C>
-void ImplMutableObject<T, C>::setValue(const T& newValue)
+void Object<T, C>::setValue(ValueType newValue)
 {
-    accessMutable([&newValue](T& value) {
+    static_assert(std::is_trivial_v<T> && !std::is_const_v<T>);
+    accessMutable([newValue](T& value) {
         value = newValue;
     });
 }
 
 template<typename T, typename C>
-void ImplMutableObject<T, C>::setValue(T&& newValue)
+T Object<T, C>::getValue() const
 {
-    accessMutable([newValue = std::move(newValue)](T&& value) {
-        value = std::move(newValue);
-    });
-}
-
-template<typename T, typename C>
-T ImplMutableObject<T, C>::getValue()
-{
+    static_assert(std::is_trivial_v<T>);
     T copy;
     accessImmutable([&copy](const T& value) {
         copy = value;
@@ -151,18 +255,8 @@ T ImplMutableObject<T, C>::getValue()
 }
 
 template<typename T, typename C>
-T ImplMutableObject<T, C>::getValue() const
-{
-    T copy;
-    accessImmutable([&copy](const T& value) {
-        copy = value;
-    });
-    return copy;
-}
-
-template<typename T, typename C>
-typename ImplMutableObject<T, C>::TimeStampType
-ImplMutableObject<T, C>::genTimestamp(std::atomic<TimeStampType>& counter) const
+typename Object<T, C>::TimeStampType
+Object<T, C>::genTimestamp(std::atomic<TimeStampType>& counter) const
 {
     TimeStampType timestamp = 0;
     while (true) {
@@ -178,115 +272,48 @@ ImplMutableObject<T, C>::genTimestamp(std::atomic<TimeStampType>& counter) const
 }
 
 template<typename T, typename C>
-typename ImplMutableObject<T, C>::TimeStampType
-ImplMutableObject<T, C>::getCurrentTimestamp(const std::atomic<TimeStampType>& counter) const
+typename Object<T, C>::TimeStampType
+Object<T, C>::getCurrentTimestamp(const std::atomic<TimeStampType>& counter) const
 {
     return counter.load();
 }
 
-} //! namespace __details
-
-template<typename T, typename C>
-class BasicObject {
-public:
-    using ValueType = std::remove_cv_t<T>;
-    using TimeStampType = C;
-    using ImmutableValueRefType = const ValueType&;
-
-    template<typename ... Arg>
-    BasicObject(Arg&& ... arg): m_object(std::forward<Arg>(arg) ...) {}
-    BasicObject(const BasicObject& other): m_object(other.m_object.getValue()) {}
-    BasicObject& operator=(const BasicObject& other) {
-        m_object.setValue(other.m_object.getValue());
-        return *this;
-    }
-    BasicObject(BasicObject&& other) noexcept: m_object(other.m_object.getValue()) {}
-    BasicObject& operator=(BasicObject&& other) noexcept {
-        m_object.setValue(other.m_object.getValue());
-        return *this;
-    }
-    virtual ~BasicObject() = default;
-
-    template<typename Func>
-    void accessImmutable(Func f) const { m_object.accessImmutable(f); }
-
-    template<typename Func>
-    void accessImmutable(Func f) { m_object.accessImmutable(f); }
-
-    T getValue() const { return m_object.getValue(); }
-    T getValue() { return m_object.getValue(); }
-
-protected:
-   __details::ImplMutableObject<ValueType, TimeStampType> m_object;
-};
-
-template<typename T, typename C>
-class BasicMutableObject final : public BasicObject<T, C> {
-public:
-    using ValueType = std::remove_cv_t<T>;
-    using TimeStampType = C;
-    using ImmutableValueRefType = const ValueType&;
-    using MutableValueRefType = ValueType&;
-
-    template<typename ... Arg>
-    BasicMutableObject(Arg&& ... arg): BasicObject<T, C>(std::forward<Arg>(arg) ...) {}
-
-    template<typename Func>
-    void accessMutable(Func f) { BasicObject<T, C>::m_object.accessMutable(f); }
-
-    void setValue(const T& newValue) { BasicObject<T, C>::m_object.setValue(newValue); }
-    void setValue(T&& newValue) { BasicObject<T, C>::m_object.setValue(std::move(newValue)); }
-};
-
 #else
 
-template<typename T, typename C>
-class BasicObject {
+template<typename T, typename C = std::int32_t>
+class Object {
 public:
-   using ValueType = std::remove_cv_t<T>;
-   using TimeStampType = C;
-   using ImmutableValueRefType = const ValueType&;
+    static_assert(!std::is_volatile_v<T>);
+    using ValueType = std::remove_const_t<T>;
+    using TimeStampType = C;
+    using MutableRefType = ValueType&;
+    using ImmutableRefType = const ValueType&;
 
-   template<typename ... Arg>
-   BasicObject(Arg&& ... arg): m_value(std::forward<Arg>(arg) ...) {}
+    static constexpr auto TIMESTAMP_LIMIT = std::numeric_limits<TimeStampType>::max();
 
-   template<typename Func>
-   inline void accessImmutable(Func f) const { f(m_value); }
+    template<typename ... Arg>
+    Object(Arg&& ... arg): m_value(std::forward<Arg>(arg) ...) {}
+    Object(const Object& other) = default;
+    Object& operator=(const Object& other) = default;
+    Object(Object&& other) noexcept = default;
+    Object& operator=(Object&& other) noexcept = default;
+    ~Object() = default;
 
-   template<typename Func>
-   inline void accessImmutable(Func f) { f(m_value); }
+    template<typename Func>
+    void accessMutable(Func f) { f(m_value); }
 
-   inline ValueType getValue() const { return m_value; }
-   inline ValueType getValue() { return m_value; }
+    template<typename Func>
+    void accessImmutable(Func f) const { f(m_value); }
 
-protected:
-   ValueType m_value;
-};
+    void setValue(const ValueType& newValue) { m_value = newValue; }
+    void setValue(ValueType&& newValue) { m_value = std::move(newValue); }
+    ValueType getValue() const { return m_value; }
 
-template<typename T, typename C>
-class BasicMutableObject final : public BasicObject<T, C> {
-public:
-   using ValueType = std::remove_cv_t<T>;
-   using TimeStampType = C;
-   using ImmutableValueRefType = const ValueType&;
-
-   template<typename ... Arg>
-   BasicMutableObject(Arg&& ... arg): BasicObject<T, C>(std::forward<Arg>(arg) ...) {}
-
-   template<typename Func>
-   inline void accessMutable(Func f) { f(BasicObject<T, C>::m_value); }
-
-   inline void setValue(const T& newValue) { BasicObject<T, C>::m_value = newValue; }
-   inline void setValue(T&& newValue) { BasicObject<T, C>::m_value = std::move(newValue); }
+private:
+    T m_value;
 };
 
 #endif //! NDEBUG
-
-template<typename T>
-using MutableObject = BasicMutableObject<T, std::int16_t>;
-
-template<typename T>
-using Object = BasicObject<T, std::int16_t>;
 
 } //! namespace atom::utils::tsan
 

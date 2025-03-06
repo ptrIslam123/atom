@@ -6,14 +6,14 @@ namespace {
 
 using namespace atom::ast;
 
-void Dump(std::ostream& os, const Node *const node, int depth) {
+void Dump(std::ostream& os, const Node* node, int depth) {
     for (int i = 0; i < depth; ++i) {
         os << "    ";
     }
 
     os << "|---- " << node->getSymbol() << std::endl;
     for (const auto& child : node->getChilds()) {
-        Dump(os, child.get(), depth + 1);
+        Dump(os, &*child, depth + 1);
     }
 }
 
@@ -21,7 +21,7 @@ void Dump(std::ostream& os, const Node *const node, int depth) {
 
 namespace atom::ast {
 
-Node::Node(Node* parent, const SymbolType& symbol):
+Node::Node(NodePtrType parent, const SymbolType& symbol):
 m_parent(parent),
 m_symbol(symbol),
 m_childs() {}
@@ -29,10 +29,10 @@ m_childs() {}
 const Node::SymbolType& Node::getSymbol() const { return m_symbol; }
 const Node::SymbolType& Node::getSymbol() { return m_symbol; }
 
-Node* const Node::getParent() const { return m_parent; }
-Node* const Node::getParent() { return m_parent; }
+Node::NodePtrType const Node::getParent() const { return m_parent; }
+Node::NodePtrType const Node::getParent() { return m_parent; }
 
-void Node::addChild(std::unique_ptr<Node>&& child) {
+void Node::addChild(NodePtrType child) {
     m_childs.push_back(std::move(child));
 }
 
@@ -46,8 +46,8 @@ void Node::removeChilds() {
     m_childs.clear();
 }
 
-void Node::setParent(Node* parent) {
-    assert(this != parent);
+void Node::setParent(NodePtrType parent) {
+    assert(*this != *parent);
     m_parent = parent;
 }
 

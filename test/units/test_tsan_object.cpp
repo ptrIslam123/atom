@@ -22,21 +22,18 @@ struct Foo final {
 } //! namespace
 
 TEST(SyncTest, TestImmutableAccess) {
-    Object<Foo> foo(10, "Some text");
-    static_assert(std::is_same_v<Object<Foo>::ImmutableValueRefType, const Foo&>);
-
-    foo.accessImmutable([](Object<Foo>::ImmutableValueRefType foo) {
+    Object<const Foo> foo(10, "Some text");
+    foo.accessImmutable([](const Foo& foo) {
         EXPECT_EQ(foo.m_iValue, 10);
         EXPECT_EQ(foo.m_sValue, "Some text");
     });
+
+    // foo.accessMutable([](Foo& foo) {}); // compile error!
 }
 
 TEST(SyncTest, TestMutableAccess) {
-    MutableObject<Foo> foo(10, "Some text");
-    static_assert(std::is_same_v<MutableObject<Foo>::ImmutableValueRefType, const Foo&>);
-    static_assert(std::is_same_v<MutableObject<Foo>::MutableValueRefType, Foo&>);
-
-    foo.accessMutable([](MutableObject<Foo>::MutableValueRefType foo) {
+    Object<Foo> foo{10, "Some text"};
+    foo.accessMutable([](Object<Foo>::MutableRefType foo) {
         EXPECT_EQ(foo.m_iValue, 10);
         EXPECT_EQ(foo.m_sValue, "Some text");
 

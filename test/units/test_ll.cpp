@@ -1,8 +1,5 @@
 #include <gtest/gtest.h>
 
-#define ENABLE_LL_TESTS
-#if defined(ENABLE_LL_TESTS)
-
 #include "include/cfg/ll.h"
 
 #include <array>
@@ -11,6 +8,16 @@ using namespace atom::cfg::grammar;
 using namespace atom::cfg::ll;
 using namespace atom::ast;
 
+using NodePtrType = atom::memory::NonAtomicSharedPtr<Node>;
+using SymbolType = atom::cfg::grammar::Symbol;
+
+NodePtrType MakeNode(NodePtrType parent, const SymbolType& symbol) {
+    return NodePtrType::Make(parent, symbol);
+}
+
+NodePtrType MakeLeaf(NodePtrType parent, const SymbolType& symbol, const char token) {
+    return atom::memory::NonAtomicSharedPtr<Leaf<char>>::Make(parent, static_cast<Terminal>(symbol), token);
+}
 
 TEST(TestLL, TestParser1) {
     /*
@@ -26,18 +33,18 @@ TEST(TestLL, TestParser1) {
     rules.newProduction(A) >> a;
     Parser<char> parser{std::move(rules)};
     const std::array inputString = {'a', 't'};
-    auto expectTree = std::make_unique<Node>(nullptr, S);
+    auto expectTree = MakeNode(NodePtrType{}, S);
     {
-        auto ATree = std::make_unique<Node>(expectTree.get(), A);
-        ATree->addChild(std::make_unique<Leaf<char>>(ATree.get(), a, 'a'));
+        auto ATree = MakeNode(expectTree, A);
+        ATree->addChild(MakeLeaf(ATree, a, 'a'));
 
-        auto tTree = std::make_unique<Leaf<char>>(expectTree.get(), t, 't');
+        auto tTree = MakeLeaf(expectTree, t, 't');
 
         expectTree->addChild(std::move(ATree));
         expectTree->addChild(std::move(tTree));
     }
     auto realTree = parser.buildTree(inputString);
-    ASSERT_TRUE(realTree);
+    ASSERT_NE(realTree, nullptr);
     EXPECT_EQ(*realTree, *expectTree);
 }
 
@@ -60,62 +67,62 @@ TEST(TestLL, TestParser2) {
     Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'a', 'b', 'c'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
-            ATree->addChild(std::make_unique<Leaf<char>>(ATree.get(), a, 'a'));
+            auto ATree = MakeNode(expectTree, A);
+            ATree->addChild(MakeLeaf(ATree, a, 'a'));
 
-            auto BTree = std::make_unique<Node>(expectTree.get(), B);
-            BTree->addChild(std::make_unique<Leaf<char>>(BTree.get(), b, 'b'));
+            auto BTree = MakeNode(expectTree, B);
+            BTree->addChild(MakeLeaf(BTree, b, 'b'));
 
-            auto cTree = std::make_unique<Leaf<char>>(expectTree.get(), c, 'c');
+            auto cTree = MakeLeaf(expectTree, c, 'c');
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(BTree));
             expectTree->addChild(std::move(cTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'a', 'c'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
-            ATree->addChild(std::make_unique<Leaf<char>>(ATree.get(), a, 'a'));
+            auto ATree = MakeNode(expectTree, A);
+            ATree->addChild(MakeLeaf(ATree, a, 'a'));
 
-            auto BTree = std::make_unique<Node>(expectTree.get(), B);
-            BTree->addChild(std::make_unique<Node>(BTree.get(), None));
+            auto BTree = MakeNode(expectTree, B);
+            BTree->addChild(MakeNode(BTree, None));
 
-            auto cTree = std::make_unique<Leaf<char>>(expectTree.get(), c, 'c');
+            auto cTree = MakeLeaf(expectTree, c, 'c');
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(BTree));
             expectTree->addChild(std::move(cTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'c'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
-            ATree->addChild(std::make_unique<Node>(ATree.get(), None));
+            auto ATree = MakeNode(expectTree, A);
+            ATree->addChild(MakeNode(ATree, None));
 
-            auto BTree = std::make_unique<Node>(expectTree.get(), B);
-            BTree->addChild(std::make_unique<Node>(BTree.get(), None));
+            auto BTree = MakeNode(expectTree, B);
+            BTree->addChild(MakeNode(BTree, None));
 
-            auto cTree = std::make_unique<Leaf<char>>(expectTree.get(), c, 'c');
+            auto cTree = MakeLeaf(expectTree, c, 'c');
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(BTree));
             expectTree->addChild(std::move(cTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
 }
@@ -128,7 +135,7 @@ TEST(TestLL, TestParser3) {
         C -> c;
     */
     const Terminal a{"a"}, b{"b"}, c{"c"};
-    const NonTerminal S{"S"}, A{"A"}, B{"B"}, C{"C"};
+    const NonTerminal A{"A"}, B{"B"}, C{"C"};
     ProductionRules rules;
     rules.newProduction(S) >> A >> B >> C;
     rules.newProduction(A) >> a;
@@ -137,44 +144,44 @@ TEST(TestLL, TestParser3) {
     Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'a', 'b', 'c'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
-            ATree->addChild(std::make_unique<Leaf<char>>(ATree.get(), a, 'a'));
+            auto ATree = MakeNode(expectTree, A);
+            ATree->addChild(MakeLeaf(ATree, a, 'a'));
 
-            auto BTree = std::make_unique<Node>(expectTree.get(), B);
-            BTree->addChild(std::make_unique<Leaf<char>>(BTree.get(), b, 'b'));
+            auto BTree = MakeNode(expectTree, B);
+            BTree->addChild(MakeLeaf(BTree, b, 'b'));
 
-            auto CTree = std::make_unique<Node>(expectTree.get(), C);
-            CTree->addChild(std::make_unique<Leaf<char>>(CTree.get(), c, 'c'));
+            auto CTree = MakeNode(expectTree, C);
+            CTree->addChild(MakeLeaf(CTree, c, 'c'));
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(BTree));
             expectTree->addChild(std::move(CTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'a', 'c'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
-            ATree->addChild(std::make_unique<Leaf<char>>(ATree.get(), a, 'a'));
+            auto ATree = MakeNode(expectTree, A);
+            ATree->addChild(MakeLeaf(ATree, a, 'a'));
 
-            auto BTree = std::make_unique<Node>(expectTree.get(), B);
-            BTree->addChild(std::make_unique<Node>(BTree.get(), None));
+            auto BTree = MakeNode(expectTree, B);
+            BTree->addChild(MakeNode(BTree, None));
 
-            auto CTree = std::make_unique<Node>(expectTree.get(), C);
-            CTree->addChild(std::make_unique<Leaf<char>>(CTree.get(), c, 'c'));
+            auto CTree = MakeNode(expectTree, C);
+            CTree->addChild(MakeLeaf(CTree, c, 'c'));
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(BTree));
             expectTree->addChild(std::move(CTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
 }
@@ -187,7 +194,7 @@ TEST(TestLL, TestParser4) {
         C -> c | e;
     */
     const Terminal a{"a"}, b{"b"}, c{"c"};
-    const NonTerminal S{"S"}, A{"A"}, B{"B"}, C{"C"};
+    const NonTerminal A{"A"}, B{"B"}, C{"C"};
     ProductionRules rules;
     rules.newProduction(S) >> A >> B >> C;
     rules.newProduction(A) >> a >> Or >> None;
@@ -196,154 +203,154 @@ TEST(TestLL, TestParser4) {
     Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'a', 'b', 'c'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
-            ATree->addChild(std::make_unique<Leaf<char>>(ATree.get(), a, 'a'));
-            auto BTree = std::make_unique<Node>(expectTree.get(), B);
-            BTree->addChild(std::make_unique<Leaf<char>>(BTree.get(), b, 'b'));
-            auto CTree = std::make_unique<Node>(expectTree.get(), C);
-            CTree->addChild(std::make_unique<Leaf<char>>(CTree.get(), c, 'c'));
+            auto ATree = MakeNode(expectTree, A);
+            ATree->addChild(MakeLeaf(ATree, a, 'a'));
+            auto BTree = MakeNode(expectTree, B);
+            BTree->addChild(MakeLeaf(BTree, b, 'b'));
+            auto CTree = MakeNode(expectTree, C);
+            CTree->addChild(MakeLeaf(CTree, c, 'c'));
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(BTree));
             expectTree->addChild(std::move(CTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'a', 'b'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
-            ATree->addChild(std::make_unique<Leaf<char>>(ATree.get(), a, 'a'));
-            auto BTree = std::make_unique<Node>(expectTree.get(), B);
-            BTree->addChild(std::make_unique<Leaf<char>>(BTree.get(), b, 'b'));
-            auto CTree = std::make_unique<Node>(expectTree.get(), C);
-            CTree->addChild(std::make_unique<Node>(CTree.get(), None));
+            auto ATree = MakeNode(expectTree, A);
+            ATree->addChild(MakeLeaf(ATree, a, 'a'));
+            auto BTree = MakeNode(expectTree, B);
+            BTree->addChild(MakeLeaf(BTree, b, 'b'));
+            auto CTree = MakeNode(expectTree, C);
+            CTree->addChild(MakeNode(CTree, None));
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(BTree));
             expectTree->addChild(std::move(CTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'a', 'c'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
-            ATree->addChild(std::make_unique<Leaf<char>>(ATree.get(), a, 'a'));
-            auto BTree = std::make_unique<Node>(expectTree.get(), B);
-            BTree->addChild(std::make_unique<Node>(BTree.get(), None));
-            auto CTree = std::make_unique<Node>(expectTree.get(), C);
-            CTree->addChild(std::make_unique<Leaf<char>>(CTree.get(), c, 'c'));
+            auto ATree = MakeNode(expectTree, A);
+            ATree->addChild(MakeLeaf(ATree, a, 'a'));
+            auto BTree = MakeNode(expectTree, B);
+            BTree->addChild(MakeNode(BTree, None));
+            auto CTree = MakeNode(expectTree, C);
+            CTree->addChild(MakeLeaf(CTree, c, 'c'));
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(BTree));
             expectTree->addChild(std::move(CTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'b', 'c'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
-            ATree->addChild(std::make_unique<Node>(ATree.get(), None));
-            auto BTree = std::make_unique<Node>(expectTree.get(), B);
-            BTree->addChild(std::make_unique<Leaf<char>>(BTree.get(), b, 'b'));
-            auto CTree = std::make_unique<Node>(expectTree.get(), C);
-            CTree->addChild(std::make_unique<Leaf<char>>(CTree.get(), c, 'c'));
+            auto ATree = MakeNode(expectTree, A);
+            ATree->addChild(MakeNode(ATree, None));
+            auto BTree = MakeNode(expectTree, B);
+            BTree->addChild(MakeLeaf(BTree, b, 'b'));
+            auto CTree = MakeNode(expectTree, C);
+            CTree->addChild(MakeLeaf(CTree, c, 'c'));
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(BTree));
             expectTree->addChild(std::move(CTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'a'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
-            ATree->addChild(std::make_unique<Leaf<char>>(ATree.get(), a, 'a'));
-            auto BTree = std::make_unique<Node>(expectTree.get(), B);
-            BTree->addChild(std::make_unique<Node>(BTree.get(), None));
-            auto CTree = std::make_unique<Node>(expectTree.get(), C);
-            CTree->addChild(std::make_unique<Node>(CTree.get(), None));
+            auto ATree = MakeNode(expectTree, A);
+            ATree->addChild(MakeLeaf(ATree, a, 'a'));
+            auto BTree = MakeNode(expectTree, B);
+            BTree->addChild(MakeNode(BTree, None));
+            auto CTree = MakeNode(expectTree, C);
+            CTree->addChild(MakeNode(CTree, None));
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(BTree));
             expectTree->addChild(std::move(CTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'b'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
-            ATree->addChild(std::make_unique<Node>(ATree.get(), None));
-            auto BTree = std::make_unique<Node>(expectTree.get(), B);
-            BTree->addChild(std::make_unique<Leaf<char>>(BTree.get(), b, 'b'));
-            auto CTree = std::make_unique<Node>(expectTree.get(), C);
-            CTree->addChild(std::make_unique<Node>(CTree.get(), None));
+            auto ATree = MakeNode(expectTree, A);
+            ATree->addChild(MakeNode(ATree, None));
+            auto BTree = MakeNode(expectTree, B);
+            BTree->addChild(MakeLeaf(BTree, b, 'b'));
+            auto CTree = MakeNode(expectTree, C);
+            CTree->addChild(MakeNode(CTree, None));
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(BTree));
             expectTree->addChild(std::move(CTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'c'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
-            ATree->addChild(std::make_unique<Node>(ATree.get(), None));
-            auto BTree = std::make_unique<Node>(expectTree.get(), B);
-            BTree->addChild(std::make_unique<Node>(BTree.get(), None));
-            auto CTree = std::make_unique<Node>(expectTree.get(), C);
-            CTree->addChild(std::make_unique<Leaf<char>>(CTree.get(), c, 'c'));
+            auto ATree = MakeNode(expectTree, A);
+            ATree->addChild(MakeNode(ATree, None));
+            auto BTree = MakeNode(expectTree, B);
+            BTree->addChild(MakeNode(BTree, None));
+            auto CTree = MakeNode(expectTree, C);
+            CTree->addChild(MakeLeaf(CTree, c, 'c'));
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(BTree));
             expectTree->addChild(std::move(CTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array<char, 0> inputString = {};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
-            ATree->addChild(std::make_unique<Node>(ATree.get(), None));
-            auto BTree = std::make_unique<Node>(expectTree.get(), B);
-            BTree->addChild(std::make_unique<Node>(BTree.get(), None));
-            auto CTree = std::make_unique<Node>(expectTree.get(), C);
-            CTree->addChild(std::make_unique<Node>(CTree.get(), None));
+            auto ATree = MakeNode(expectTree, A);
+            ATree->addChild(MakeNode(ATree, None));
+            auto BTree = MakeNode(expectTree, B);
+            BTree->addChild(MakeNode(BTree, None));
+            auto CTree = MakeNode(expectTree, C);
+            CTree->addChild(MakeNode(CTree, None));
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(BTree));
             expectTree->addChild(std::move(CTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
 }
@@ -354,62 +361,62 @@ TEST(TestLL, TestParser5) {
         A -> a A | e;
     */
     const Terminal a{"a"}, b{"b"};
-    const NonTerminal S{"S"}, A{"A"};
+    const NonTerminal A{"A"};
     ProductionRules rules;
     rules.newProduction(S) >> A >> b;
     rules.newProduction(A) >> a >> A >> Or >> None;
     Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'b'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
-            ATree->addChild(std::make_unique<Node>(ATree.get(), None));
+            auto ATree = MakeNode(expectTree, A);
+            ATree->addChild(MakeNode(ATree, None));
 
-            auto bTree = std::make_unique<Leaf<char>>(expectTree.get(), b, 'b');
+            auto bTree = MakeLeaf(expectTree, b, 'b');
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(bTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'a', 'b'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
+            auto ATree = MakeNode(expectTree, A);
             {
-                auto aTree = std::make_unique<Leaf<char>>(ATree.get(), a, 'a');
-                auto _ATree = std::make_unique<Node>(ATree.get(), A);
-                _ATree->addChild(std::make_unique<Node>(ATree.get(), None));
+                auto aTree = MakeLeaf(ATree, a, 'a');
+                auto _ATree = MakeNode(ATree, A);
+                _ATree->addChild(MakeNode(ATree, None));
 
                 ATree->addChild(std::move(aTree));
                 ATree->addChild(std::move(_ATree));
             }
 
-            auto bTree = std::make_unique<Leaf<char>>(expectTree.get(), b, 'b');
+            auto bTree = MakeLeaf(expectTree, b, 'b');
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(bTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'a', 'a', 'b'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ATree = std::make_unique<Node>(expectTree.get(), A);
+            auto ATree = MakeNode(expectTree, A);
             {
-                auto aTree = std::make_unique<Leaf<char>>(ATree.get(), a, 'a');
-                auto _ATree = std::make_unique<Node>(ATree.get(), A);
+                auto aTree = MakeLeaf(ATree, a, 'a');
+                auto _ATree = MakeNode(ATree, A);
                 {
-                    auto _aTree = std::make_unique<Leaf<char>>(_ATree.get(), a, 'a');
-                    auto __ATree = std::make_unique<Node>(_ATree.get(), A);
-                    __ATree->addChild(std::make_unique<Node>(__ATree.get(), None));
+                    auto _aTree = MakeLeaf(_ATree, a, 'a');
+                    auto __ATree = MakeNode(_ATree, A);
+                    __ATree->addChild(MakeNode(__ATree, None));
 
                     _ATree->addChild(std::move(_aTree));
                     _ATree->addChild(std::move(__ATree));
@@ -419,13 +426,13 @@ TEST(TestLL, TestParser5) {
                 ATree->addChild(std::move(_ATree));
             }
 
-            auto bTree = std::make_unique<Leaf<char>>(expectTree.get(), b, 'b');
+            auto bTree = MakeLeaf(expectTree, b, 'b');
 
             expectTree->addChild(std::move(ATree));
             expectTree->addChild(std::move(bTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
 }
@@ -440,49 +447,49 @@ TEST(TestLL, TestParser6) {
     const Terminal a{"a"}, b{"b"};
 
     ProductionRules rules;
-    rules.newProduction(S) >> a >> S >>  b >> Or >> None;
+    rules.newProduction(S) >> a >> S >> b >> Or >> None;
     Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'a', 'b'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto aTree = std::make_unique<Leaf<char>>(expectTree.get(), a, 'a');
-            auto _STree = std::make_unique<Node>(expectTree.get(), S);
-            _STree->addChild(std::make_unique<Node>(_STree.get(), None));
-            auto bTree = std::make_unique<Leaf<char>>(expectTree.get(), b, 'b');
+            auto aTree = MakeLeaf(expectTree, a, 'a');
+            auto _STree = MakeNode(expectTree, S);
+            _STree->addChild(MakeNode(_STree, None));
+            auto bTree = MakeLeaf(expectTree, b, 'b');
 
             expectTree->addChild(std::move(aTree));
             expectTree->addChild(std::move(_STree));
             expectTree->addChild(std::move(bTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'a', 'a', 'b', 'b'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto aTree = std::make_unique<Leaf<char>>(expectTree.get(), a, 'a');
-            auto STree = std::make_unique<Node>(expectTree.get(), S);
+            auto aTree = MakeLeaf(expectTree, a, 'a');
+            auto STree = MakeNode(expectTree, S);
             {
-                auto _aTree = std::make_unique<Leaf<char>>(STree.get(), a, 'a');
-                auto _STree = std::make_unique<Node>(STree.get(), S);
-                _STree->addChild(std::make_unique<Node>(_STree.get(), None));
-                auto _bTree = std::make_unique<Leaf<char>>(STree.get(), b, 'b');
+                auto _aTree = MakeLeaf(STree, a, 'a');
+                auto _STree = MakeNode(STree, S);
+                _STree->addChild(MakeNode(_STree, None));
+                auto _bTree = MakeLeaf(STree, b, 'b');
 
                 STree->addChild(std::move(_aTree));
                 STree->addChild(std::move(_STree));
                 STree->addChild(std::move(_bTree));
             }
-            auto bTree = std::make_unique<Leaf<char>>(expectTree.get(), b, 'b');
+            auto bTree = MakeLeaf(expectTree, b, 'b');
 
             expectTree->addChild(std::move(aTree));
             expectTree->addChild(std::move(STree));
             expectTree->addChild(std::move(bTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
 }
@@ -491,61 +498,60 @@ TEST(TestLL, Test7) {
     /*
         S -> '(' S ')' | 'a'
     */
-
     const Terminal a{"a"}, openParen{"("}, closeParen{")"};
 
     ProductionRules rules;
     rules.newProduction(S) >> openParen >> S >> closeParen >> Or >> a;
-    Parser<char> parser{std::move(rules)};;
+    Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'a'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
-        expectTree->addChild(std::make_unique<Leaf<char>>(expectTree.get(), a, 'a'));
+        auto expectTree = MakeNode(NodePtrType{}, S);
+        expectTree->addChild(MakeLeaf(expectTree, a, 'a'));
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'(', 'a', ')'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto openTree = std::make_unique<Leaf<char>>(expectTree.get(), openParen, '(');
-            auto STree = std::make_unique<Node>(expectTree.get(), S);
-            STree->addChild(std::make_unique<Leaf<char>>(STree.get(), a, 'a'));
-            auto closeTree = std::make_unique<Leaf<char>>(expectTree.get(), closeParen, ')');
+            auto openTree = MakeLeaf(expectTree, openParen, '(');
+            auto STree = MakeNode(expectTree, S);
+            STree->addChild(MakeLeaf(STree, a, 'a'));
+            auto closeTree = MakeLeaf(expectTree, closeParen, ')');
 
             expectTree->addChild(std::move(openTree));
             expectTree->addChild(std::move(STree));
             expectTree->addChild(std::move(closeTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'(', '(', 'a', ')', ')'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto openTree = std::make_unique<Leaf<char>>(expectTree.get(), openParen, '(');
-            auto STree = std::make_unique<Node>(expectTree.get(), S);
+            auto openTree = MakeLeaf(expectTree, openParen, '(');
+            auto STree = MakeNode(expectTree, S);
             {
-                auto _openTree = std::make_unique<Leaf<char>>(STree.get(), openParen, '(');
-                auto _STree = std::make_unique<Node>(STree.get(), S);
-                _STree->addChild(std::make_unique<Leaf<char>>(_STree.get(), a, 'a'));
-                auto _closeTree = std::make_unique<Leaf<char>>(STree.get(), closeParen, ')');
+                auto _openTree = MakeLeaf(STree, openParen, '(');
+                auto _STree = MakeNode(STree, S);
+                _STree->addChild(MakeLeaf(_STree, a, 'a'));
+                auto _closeTree = MakeLeaf(STree, closeParen, ')');
 
                 STree->addChild(std::move(_openTree));
                 STree->addChild(std::move(_STree));
                 STree->addChild(std::move(_closeTree));
             }
-            auto closeTree = std::make_unique<Leaf<char>>(expectTree.get(), closeParen, ')');
+            auto closeTree = MakeLeaf(expectTree, closeParen, ')');
 
             expectTree->addChild(std::move(openTree));
             expectTree->addChild(std::move(STree));
             expectTree->addChild(std::move(closeTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
 }
@@ -565,29 +571,29 @@ TEST(TestLL, Test8) {
     Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'i'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ETree = std::make_unique<Node>(expectTree.get(), E);
-            ETree->addChild(std::make_unique<Leaf<char>>(ETree.get(), i, 'i'));
+            auto ETree = MakeNode(expectTree, E);
+            ETree->addChild(MakeLeaf(ETree, i, 'i'));
 
             expectTree->addChild(std::move(ETree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'i', '+', 'i'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ETree = std::make_unique<Node>(expectTree.get(), E);
+            auto ETree = MakeNode(expectTree, E);
             {
-                auto iTree = std::make_unique<Leaf<char>>(ETree.get(), i, 'i');
-                auto plusTree = std::make_unique<Leaf<char>>(ETree.get(), plus, '+');
-                auto STree = std::make_unique<Node>(ETree.get(), S);
+                auto iTree = MakeLeaf(ETree, i, 'i');
+                auto plusTree = MakeLeaf(ETree, plus, '+');
+                auto STree = MakeNode(ETree, S);
                 {
-                    auto _ETree = std::make_unique<Node>(STree.get(), E);
-                    _ETree->addChild(std::make_unique<Leaf<char>>(_ETree.get(), i, 'i'));
+                    auto _ETree = MakeNode(STree, E);
+                    _ETree->addChild(MakeLeaf(_ETree, i, 'i'));
 
                     STree->addChild(std::move(_ETree));
                 }
@@ -600,27 +606,27 @@ TEST(TestLL, Test8) {
             expectTree->addChild(std::move(ETree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'i', '+', 'i', '+', 'i'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ETree = std::make_unique<Node>(expectTree.get(), E);
+            auto ETree = MakeNode(expectTree, E);
             {
-                auto iTree = std::make_unique<Leaf<char>>(ETree.get(), i, 'i');
-                auto plusTree = std::make_unique<Leaf<char>>(ETree.get(), plus, '+');
-                auto STree = std::make_unique<Node>(ETree.get(), S);
+                auto iTree = MakeLeaf(ETree, i, 'i');
+                auto plusTree = MakeLeaf(ETree, plus, '+');
+                auto STree = MakeNode(ETree, S);
                 {
-                    auto _ETree = std::make_unique<Node>(STree.get(), E);
+                    auto _ETree = MakeNode(STree, E);
                     {
-                        auto _iTree = std::make_unique<Leaf<char>>(_ETree.get(), i, 'i');
-                        auto _plusTree = std::make_unique<Leaf<char>>(_ETree.get(), plus, '+');
-                        auto _STree = std::make_unique<Node>(_ETree.get(), S);
+                        auto _iTree = MakeLeaf(_ETree, i, 'i');
+                        auto _plusTree = MakeLeaf(_ETree, plus, '+');
+                        auto _STree = MakeNode(_ETree, S);
                         {
-                            auto __ETree = std::make_unique<Node>(_STree.get(), E);
-                            __ETree->addChild(std::make_unique<Leaf<char>>(_STree.get(), i, 'i'));
+                            auto __ETree = MakeNode(_STree, E);
+                            __ETree->addChild(MakeLeaf(__ETree, i, 'i'));
 
                             _STree->addChild(std::move(__ETree));
                         }
@@ -641,28 +647,28 @@ TEST(TestLL, Test8) {
             expectTree->addChild(std::move(ETree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'i', '+', '(', 'i', '+', 'i', ')'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ETree = std::make_unique<Node>(expectTree.get(), E);
+            auto ETree = MakeNode(expectTree, E);
             {
-                auto iTree = std::make_unique<Leaf<char>>(ETree.get(), i, 'i');
-                auto plusTree = std::make_unique<Leaf<char>>(ETree.get(), plus, '+');
-                auto STree = std::make_unique<Node>(ETree.get(), S);
+                auto iTree = MakeLeaf(ETree, i, 'i');
+                auto plusTree = MakeLeaf(ETree, plus, '+');
+                auto STree = MakeNode(ETree, S);
                 {
-                    auto openParenTree = std::make_unique<Leaf<char>>(STree.get(), openParen, '(');
-                    auto _ETree = std::make_unique<Node>(STree.get(), E);
+                    auto openParenTree = MakeLeaf(STree, openParen, '(');
+                    auto _ETree = MakeNode(STree, E);
                     {
-                        auto _iTree = std::make_unique<Leaf<char>>(_ETree.get(), i, 'i');
-                        auto _plusTree = std::make_unique<Leaf<char>>(_ETree.get(), plus, '+');
-                        auto _STree = std::make_unique<Node>(_ETree.get(), S);
+                        auto _iTree = MakeLeaf(_ETree, i, 'i');
+                        auto _plusTree = MakeLeaf(_ETree, plus, '+');
+                        auto _STree = MakeNode(_ETree, S);
                         {
-                            auto __ETree = std::make_unique<Node>(_STree.get(), E);
-                            __ETree->addChild(std::make_unique<Leaf<char>>(_STree.get(), i, 'i'));
+                            auto __ETree = MakeNode(_STree, E);
+                            __ETree->addChild(MakeLeaf(__ETree, i, 'i'));
 
                             _STree->addChild(std::move(__ETree));
                         }
@@ -671,7 +677,7 @@ TEST(TestLL, Test8) {
                         _ETree->addChild(std::move(_plusTree));
                         _ETree->addChild(std::move(_STree));
                     }
-                    auto closeParenTree = std::make_unique<Leaf<char>>(STree.get(), closeParen, ')');
+                    auto closeParenTree = MakeLeaf(STree, closeParen, ')');
 
                     STree->addChild(std::move(openParenTree));
                     STree->addChild(std::move(_ETree));
@@ -685,6 +691,9 @@ TEST(TestLL, Test8) {
 
             expectTree->addChild(std::move(ETree));
         }
+        auto realTree = parser.buildTree(inputString);
+        ASSERT_NE(realTree, nullptr);
+        EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'(', 'i', '+', 'i', ')', '+', 'i'};
@@ -702,50 +711,49 @@ TEST(TestLL, Test9) {
     */
 
     // a^n b^n (ab, aabb, aaabbb)
-
     const Terminal a{"a"}, b{"b"};
 
     ProductionRules rules;
-    rules.newProduction(S) >> a >> S >>  b >> Or >> None;
+    rules.newProduction(S) >> a >> S >> b >> Or >> None;
 
     Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'a', 'b'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto aTree = std::make_unique<Leaf<char>>(expectTree.get(), a, 'a');
-            auto STree = std::make_unique<Node>(expectTree.get(), S);
-            STree->addChild(std::make_unique<Node>(STree.get(), None));
+            auto aTree = MakeLeaf(expectTree, a, 'a');
+            auto STree = MakeNode(expectTree, S);
+            STree->addChild(MakeNode(STree, None));
 
-            auto bTree = std::make_unique<Leaf<char>>(expectTree.get(), b, 'b');
+            auto bTree = MakeLeaf(expectTree, b, 'b');
 
             expectTree->addChild(std::move(aTree));
             expectTree->addChild(std::move(STree));
             expectTree->addChild(std::move(bTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'a', 'a', 'b', 'b'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto aTree1 = std::make_unique<Leaf<char>>(expectTree.get(), a, 'a');
-            auto STree1 = std::make_unique<Node>(expectTree.get(), S);
+            auto aTree1 = MakeLeaf(expectTree, a, 'a');
+            auto STree1 = MakeNode(expectTree, S);
             {
-                auto aTree2 = std::make_unique<Leaf<char>>(STree1.get(), a, 'a');
-                auto STree2 = std::make_unique<Node>(STree1.get(), S);
-                STree2->addChild(std::make_unique<Node>(STree1.get(), None));
+                auto aTree2 = MakeLeaf(STree1, a, 'a');
+                auto STree2 = MakeNode(STree1, S);
+                STree2->addChild(MakeNode(STree1, None));
 
-                auto bTree2 = std::make_unique<Leaf<char>>(STree1.get(), b, 'b');
+                auto bTree2 = MakeLeaf(STree1, b, 'b');
 
                 STree1->addChild(std::move(aTree2));
                 STree1->addChild(std::move(STree2));
                 STree1->addChild(std::move(bTree2));
             }
 
-            auto bTree1 = std::make_unique<Leaf<char>>(expectTree.get(), b, 'b');
+            auto bTree1 = MakeLeaf(expectTree, b, 'b');
 
             expectTree->addChild(std::move(aTree1));
             expectTree->addChild(std::move(STree1));
@@ -753,38 +761,38 @@ TEST(TestLL, Test9) {
         }
 
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'a', 'a', 'a', 'b', 'b', 'b'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto aTree1 = std::make_unique<Leaf<char>>(expectTree.get(), a, 'a');
-            auto STree1 = std::make_unique<Node>(expectTree.get(), S);
+            auto aTree1 = MakeLeaf(expectTree, a, 'a');
+            auto STree1 = MakeNode(expectTree, S);
             {
-                auto aTree2 = std::make_unique<Leaf<char>>(STree1.get(), a, 'a');
-                auto STree2 = std::make_unique<Node>(STree1.get(), S);
+                auto aTree2 = MakeLeaf(STree1, a, 'a');
+                auto STree2 = MakeNode(STree1, S);
                 {
-                    auto aTree3 = std::make_unique<Leaf<char>>(STree2.get(), a, 'a');
-                    auto STree3 = std::make_unique<Node>(STree2.get(), S);
-                    STree3->addChild(std::make_unique<Node>(STree2.get(), None));
+                    auto aTree3 = MakeLeaf(STree2, a, 'a');
+                    auto STree3 = MakeNode(STree2, S);
+                    STree3->addChild(MakeNode(STree2, None));
 
-                    auto bTree3 = std::make_unique<Leaf<char>>(STree2.get(), b, 'b');
+                    auto bTree3 = MakeLeaf(STree2, b, 'b');
 
                     STree2->addChild(std::move(aTree3));
                     STree2->addChild(std::move(STree3));
                     STree2->addChild(std::move(bTree3));
                 }
 
-                auto bTree2 = std::make_unique<Leaf<char>>(STree1.get(), b, 'b');
+                auto bTree2 = MakeLeaf(STree1, b, 'b');
 
                 STree1->addChild(std::move(aTree2));
                 STree1->addChild(std::move(STree2));
                 STree1->addChild(std::move(bTree2));
             }
 
-            auto bTree1 = std::make_unique<Leaf<char>>(expectTree.get(), b, 'b');
+            auto bTree1 = MakeLeaf(expectTree, b, 'b');
 
             expectTree->addChild(std::move(aTree1));
             expectTree->addChild(std::move(STree1));
@@ -792,7 +800,7 @@ TEST(TestLL, Test9) {
         }
 
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
 }
@@ -804,100 +812,99 @@ TEST(TestLL, Test10) {
 
     // a, (a), ((a)), (( ... a ... ))
     const Terminal a{"a"}, openParen{"("}, closeParen{")"};
-
     ProductionRules rules;
     rules.newProduction(S) >> openParen >> S >> closeParen >> Or >> a;
 
     Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'a'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
-        expectTree->addChild(std::make_unique<Leaf<char>>(expectTree.get(), a, 'a'));
+        auto expectTree = MakeNode(NodePtrType{}, S);
+        expectTree->addChild(MakeLeaf(expectTree, a, 'a'));
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'(', 'a', ')'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto openTree = std::make_unique<Leaf<char>>(expectTree.get(), openParen, '(');
-            auto STree = std::make_unique<Node>(expectTree.get(), S);
-            STree->addChild(std::make_unique<Leaf<char>>(STree.get(), a, 'a'));
-            auto closeTree = std::make_unique<Leaf<char>>(expectTree.get(), closeParen, ')');
+            auto openTree = MakeLeaf(expectTree, openParen, '(');
+            auto STree = MakeNode(expectTree, S);
+            STree->addChild(MakeLeaf(STree, a, 'a'));
+            auto closeTree = MakeLeaf(expectTree, closeParen, ')');
 
             expectTree->addChild(std::move(openTree));
             expectTree->addChild(std::move(STree));
             expectTree->addChild(std::move(closeTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'(', '(', 'a', ')', ')'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto openTree = std::make_unique<Leaf<char>>(expectTree.get(), openParen, '(');
-            auto STree = std::make_unique<Node>(expectTree.get(), S);
+            auto openTree = MakeLeaf(expectTree, openParen, '(');
+            auto STree = MakeNode(expectTree, S);
             {
-                auto _openTree = std::make_unique<Leaf<char>>(STree.get(), openParen, '(');
-                auto _STree = std::make_unique<Node>(STree.get(), S);
-                _STree->addChild(std::make_unique<Leaf<char>>(_STree.get(), a, 'a'));
-                auto _closeTree = std::make_unique<Leaf<char>>(STree.get(), closeParen, ')');
+                auto _openTree = MakeLeaf(STree, openParen, '(');
+                auto _STree = MakeNode(STree, S);
+                _STree->addChild(MakeLeaf(_STree, a, 'a'));
+                auto _closeTree = MakeLeaf(STree, closeParen, ')');
 
                 STree->addChild(std::move(_openTree));
                 STree->addChild(std::move(_STree));
                 STree->addChild(std::move(_closeTree));
             }
-            auto closeTree = std::make_unique<Leaf<char>>(expectTree.get(), closeParen, ')');
+            auto closeTree = MakeLeaf(expectTree, closeParen, ')');
 
             expectTree->addChild(std::move(openTree));
             expectTree->addChild(std::move(STree));
             expectTree->addChild(std::move(closeTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'(', '(', '(', 'a', ')', ')', ')'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto openTree = std::make_unique<Leaf<char>>(expectTree.get(), openParen, '(');
-            auto STree = std::make_unique<Node>(expectTree.get(), S);
+            auto openTree = MakeLeaf(expectTree, openParen, '(');
+            auto STree = MakeNode(expectTree, S);
             {
-                auto _openTree = std::make_unique<Leaf<char>>(STree.get(), openParen, '(');
-                auto _STree = std::make_unique<Node>(STree.get(), S);
+                auto _openTree = MakeLeaf(STree, openParen, '(');
+                auto _STree = MakeNode(STree, S);
                 {
-                    auto __openTree = std::make_unique<Leaf<char>>(_STree.get(), openParen, '(');
-                    auto __STree = std::make_unique<Node>(_STree.get(), S);
-                    __STree->addChild(std::make_unique<Leaf<char>>(__STree.get(), a, 'a'));
-                    auto __closeTree = std::make_unique<Leaf<char>>(_STree.get(), closeParen, ')');
+                    auto __openTree = MakeLeaf(_STree, openParen, '(');
+                    auto __STree = MakeNode(_STree, S);
+                    __STree->addChild(MakeLeaf(__STree, a, 'a'));
+                    auto __closeTree = MakeLeaf(_STree, closeParen, ')');
 
                     _STree->addChild(std::move(__openTree));
                     _STree->addChild(std::move(__STree));
                     _STree->addChild(std::move(__closeTree));
                 }
-                auto _closeTree = std::make_unique<Leaf<char>>(STree.get(), closeParen, ')');
+                auto _closeTree = MakeLeaf(STree, closeParen, ')');
 
                 STree->addChild(std::move(_openTree));
                 STree->addChild(std::move(_STree));
                 STree->addChild(std::move(_closeTree));
             }
-            auto closeTree = std::make_unique<Leaf<char>>(expectTree.get(), closeParen, ')');
+            auto closeTree = MakeLeaf(expectTree, closeParen, ')');
 
             expectTree->addChild(std::move(openTree));
             expectTree->addChild(std::move(STree));
             expectTree->addChild(std::move(closeTree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
 }
 
-TEST(TestLL, TestParrser11) {
+TEST(TestLL, TestParser11) {
     /*
         S -> E;
         E  -> T E';
@@ -916,31 +923,31 @@ TEST(TestLL, TestParrser11) {
     Parser<char> parser{std::move(rules)};
     {
         const std::array inputString = {'(', 'i', ')'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ETree = std::make_unique<Node>(expectTree.get(), E);
+            auto ETree = MakeNode(expectTree, E);
             {
-                auto TTree = std::make_unique<Node>(ETree.get(), T);
+                auto TTree = MakeNode(ETree, T);
                 {
-                    auto openParenTree = std::make_unique<Leaf<char>>(TTree.get(), openParen, '(');
-                    auto _ETree = std::make_unique<Node>(TTree.get(), E);
+                    auto openParenTree = MakeLeaf(TTree, openParen, '(');
+                    auto _ETree = MakeNode(TTree, E);
                     {
-                        auto _TTree = std::make_unique<Node>(_ETree.get(), T);
-                        _TTree->addChild(std::make_unique<Leaf<char>>(_TTree.get(), i, 'i'));
-                        auto _E_Tree = std::make_unique<Node>(_ETree.get(), E_);
-                        _E_Tree->addChild(std::make_unique<Node>(_ETree.get(), None));
+                        auto _TTree = MakeNode(_ETree, T);
+                        _TTree->addChild(MakeLeaf(_TTree, i, 'i'));
+                        auto _E_Tree = MakeNode(_ETree, E_);
+                        _E_Tree->addChild(MakeNode(_E_Tree, None));
 
                         _ETree->addChild(std::move(_TTree));
                         _ETree->addChild(std::move(_E_Tree));
                     }
-                    auto closeParenTree = std::make_unique<Leaf<char>>(TTree.get(), closeParen, ')');
+                    auto closeParenTree = MakeLeaf(TTree, closeParen, ')');
 
                     TTree->addChild(std::move(openParenTree));
                     TTree->addChild(std::move(_ETree));
                     TTree->addChild(std::move(closeParenTree));
                 }
-                auto E_Tree = std::make_unique<Node>(ETree.get(), E_);
-                E_Tree->addChild(std::make_unique<Node>(E_Tree.get(), None));
+                auto E_Tree = MakeNode(ETree, E_);
+                E_Tree->addChild(MakeNode(E_Tree, None));
 
                 ETree->addChild(std::move(TTree));
                 ETree->addChild(std::move(E_Tree));
@@ -949,19 +956,19 @@ TEST(TestLL, TestParrser11) {
             expectTree->addChild(std::move(ETree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'i'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ETree = std::make_unique<Node>(expectTree.get(), E);
+            auto ETree = MakeNode(expectTree, E);
             {
-                auto TTree = std::make_unique<Node>(ETree.get(), T);
-                TTree->addChild(std::make_unique<Leaf<char>>(TTree.get(), i, 'i'));
-                auto E_Tree = std::make_unique<Node>(ETree.get(), E_);
-                E_Tree->addChild(std::make_unique<Node>(E_Tree.get(), None));
+                auto TTree = MakeNode(ETree, T);
+                TTree->addChild(MakeLeaf(TTree, i, 'i'));
+                auto E_Tree = MakeNode(ETree, E_);
+                E_Tree->addChild(MakeNode(E_Tree, None));
 
                 ETree->addChild(std::move(TTree));
                 ETree->addChild(std::move(E_Tree));
@@ -970,32 +977,32 @@ TEST(TestLL, TestParrser11) {
             expectTree->addChild(std::move(ETree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
         const std::array inputString = {'i', '+', 'i', '+', 'i'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ETree = std::make_unique<Node>(expectTree.get(), E);
+            auto ETree = MakeNode(expectTree, E);
             {
-                auto TTree1 = std::make_unique<Node>(ETree.get(), T);
-                TTree1->addChild(std::make_unique<Leaf<char>>(TTree1.get(), i, 'i'));
+                auto TTree1 = MakeNode(ETree, T);
+                TTree1->addChild(MakeLeaf(TTree1, i, 'i'));
 
-                auto E_Tree1 = std::make_unique<Node>(ETree.get(), E_);
+                auto E_Tree1 = MakeNode(ETree, E_);
                 {
-                    auto plusTree1 = std::make_unique<Leaf<char>>(E_Tree1.get(), plus, '+');
-                    auto TTree2 = std::make_unique<Node>(E_Tree1.get(), T);
-                    TTree2->addChild(std::make_unique<Leaf<char>>(TTree2.get(), i, 'i'));
+                    auto plusTree1 = MakeLeaf(E_Tree1, plus, '+');
+                    auto TTree2 = MakeNode(E_Tree1, T);
+                    TTree2->addChild(MakeLeaf(TTree2, i, 'i'));
 
-                    auto E_Tree2 = std::make_unique<Node>(E_Tree1.get(), E_);
+                    auto E_Tree2 = MakeNode(E_Tree1, E_);
                     {
-                        auto plusTree2 = std::make_unique<Leaf<char>>(E_Tree2.get(), plus, '+');
-                        auto TTree3 = std::make_unique<Node>(E_Tree2.get(), T);
-                        TTree3->addChild(std::make_unique<Leaf<char>>(TTree3.get(), i, 'i'));
+                        auto plusTree2 = MakeLeaf(E_Tree2, plus, '+');
+                        auto TTree3 = MakeNode(E_Tree2, T);
+                        TTree3->addChild(MakeLeaf(TTree3, i, 'i'));
 
-                        auto E_Tree3 = std::make_unique<Node>(E_Tree2.get(), E_);
-                        E_Tree3->addChild(std::make_unique<Node>(E_Tree3.get(), None));
+                        auto E_Tree3 = MakeNode(E_Tree2, E_);
+                        E_Tree3->addChild(MakeNode(E_Tree3, None));
 
                         E_Tree2->addChild(std::move(plusTree2));
                         E_Tree2->addChild(std::move(TTree3));
@@ -1015,92 +1022,247 @@ TEST(TestLL, TestParrser11) {
         }
 
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
+        ASSERT_NE(realTree, nullptr);
         EXPECT_EQ(*realTree, *expectTree);
     }
     {
-        const std::array inputString = {'(', 'i', '+', '(', 'i', '+', '(', 'i', ')', ')'};
-        auto expectTree = std::make_unique<Node>(nullptr, S);
+        const std::array inputString = {'(', 'i', '+', '(', 'i', '+', '(', 'i', ')', ')', ')'};
+        auto expectTree = MakeNode(NodePtrType{}, S);
         {
-            auto ETree = std::make_unique<Node>(expectTree.get(), E);
+            auto ETree = MakeNode(expectTree, E);
             {
-                auto TTree = std::make_unique<Node>(ETree.get(), T);
+                auto TTree = MakeNode(ETree, T);
                 {
-                    auto openParenTree = std::make_unique<Leaf<char>>(TTree.get(), openParen, '(');
-                    auto _ETree = std::make_unique<Node>(TTree.get(), E);
+                    auto openParenLeaf = MakeLeaf(TTree, openParen, '(');
+                    auto innerETree = MakeNode(TTree, E);
                     {
-                        auto _TTree = std::make_unique<Node>(_ETree.get(), T);
-                        _TTree->addChild(std::make_unique<Leaf<char>>(_TTree.get(), i, 'i'));
-                        auto _E_Tree = std::make_unique<Node>(_ETree.get(), E_);
-                        {
-                            auto plusTree = std::make_unique<Leaf<char>>(_E_Tree.get(), plus, '+');
-                            auto __TTree = std::make_unique<Node>(_E_Tree.get(), T);
-                            {
-                                auto _openParenTree = std::make_unique<Leaf<char>>(__TTree.get(), openParen, '(');
-                                auto __ETree = std::make_unique<Node>(__TTree.get(), E);
-                                {
-                                    auto ___TTree = std::make_unique<Node>(__ETree.get(), T);
-                                    ___TTree->addChild(std::make_unique<Leaf<char>>(___TTree.get(), i, 'i'));
-                                    auto __E_Tree = std::make_unique<Node>(__ETree.get(), E_);
-                                    {
-                                        auto _plusTree = std::make_unique<Leaf<char>>(__E_Tree.get(), plus, '+');
-                                        auto ____TTree = std::make_unique<Node>(__E_Tree.get(), T);
-                                        {
-                                            auto ____ETree = std::make_unique<Node>(____TTree.get(), E);
-                                            {
-                                                auto ____TTree = std::make_unique<Node>();
-                                                ____TTree->addChild(std::make_unique<Leaf<char>>(____TTree.get(), i, 'i'));
+                        auto firstTTree = MakeNode(innerETree, T);
+                        firstTTree->addChild(MakeLeaf(firstTTree, i, 'i'));
 
-                                                ____ETree->addChild(std::move(____TTree));
+                        auto firstE_PrimeTree = MakeNode(innerETree, E_);
+                        {
+                            auto plusLeaf = MakeLeaf(firstE_PrimeTree, plus, '+');
+
+                            auto secondTTree = MakeNode(firstE_PrimeTree, T);
+                            {
+                                auto secondOpenParenLeaf = MakeLeaf(secondTTree, openParen, '(');
+
+                                auto secondInnerETree = MakeNode(secondTTree, E);
+                                {
+                                    auto thirdTTree = MakeNode(secondInnerETree, T);
+                                    thirdTTree->addChild(MakeLeaf(thirdTTree, i, 'i'));
+
+                                    auto secondE_PrimeTree = MakeNode(secondInnerETree, E_);
+                                    {
+                                        auto secondPlusLeaf = MakeLeaf(secondE_PrimeTree, plus, '+');
+
+                                        auto thirdInnerTTree = MakeNode(secondE_PrimeTree, T);
+                                        {
+                                            auto thirdOpenParenLeaf = MakeLeaf(thirdInnerTTree, openParen, '(');
+
+                                            auto thirdInnerETree = MakeNode(thirdInnerTTree, E);
+                                            {
+                                                auto fourthTTree = MakeNode(thirdInnerETree, T);
+                                                fourthTTree->addChild(MakeLeaf(fourthTTree, i, 'i'));
+
+                                                auto thirdE_PrimeTree = MakeNode(thirdInnerETree, E_);
+                                                thirdE_PrimeTree->addChild(MakeNode(thirdE_PrimeTree, None));
+
+                                                thirdInnerETree->addChild(std::move(fourthTTree));
+                                                thirdInnerETree->addChild(std::move(thirdE_PrimeTree));
                                             }
 
-                                            ____TTree->addChild(std::move(____ETree));
-                                        }
-                                        auto ___E_Tree = std::make_unique<Node>(__E_Tree.get(), E_);
+                                            auto thirdCloseParenLeaf = MakeLeaf(thirdInnerTTree, closeParen, ')');
 
-                                        __E_Tree->addChild(std::move(_plusTree));
-                                        __E_Tree->addChild(std::move(____TTree));
-                                        __E_Tree->addChild(std::move(___E_Tree));
+                                            thirdInnerTTree->addChild(std::move(thirdOpenParenLeaf));
+                                            thirdInnerTTree->addChild(std::move(thirdInnerETree));
+                                            thirdInnerTTree->addChild(std::move(thirdCloseParenLeaf));
+                                        }
+
+                                        auto fourthE_PrimeTree = MakeNode(secondE_PrimeTree, E_);
+                                        fourthE_PrimeTree->addChild(MakeNode(fourthE_PrimeTree, None));
+
+                                        secondE_PrimeTree->addChild(std::move(secondPlusLeaf));
+                                        secondE_PrimeTree->addChild(std::move(thirdInnerTTree));
+                                        secondE_PrimeTree->addChild(std::move(fourthE_PrimeTree));
                                     }
 
-                                    __ETree->addChild(std::move(___TTree));
-                                    __ETree->addChild(std::move(__E_Tree));
+                                    secondInnerETree->addChild(std::move(thirdTTree));
+                                    secondInnerETree->addChild(std::move(secondE_PrimeTree));
                                 }
-                                auto _closeParenTree = std::make_unique<Leaf<char>>(__TTree.get(), closeParen, ')');
 
-                                __TTree->addChild(std::move(_openParenTree));
-                                __TTree->addChild(std::move(__ETree));
-                                __TTree->addChild(std::move(_closeParenTree));
+                                auto secondCloseParenLeaf = MakeLeaf(secondTTree, closeParen, ')');
+
+                                secondTTree->addChild(std::move(secondOpenParenLeaf));
+                                secondTTree->addChild(std::move(secondInnerETree));
+                                secondTTree->addChild(std::move(secondCloseParenLeaf));
                             }
-                            auto __E_Tree = std::make_unique<Node>(_E_Tree.get(), E_);
-                            __E_Tree->addChild(std::make_unique<Node>(__E_Tree.get(), None));
 
-                            _E_Tree->addChild(std::move(plusTree));
-                            _E_Tree->addChild(std::move(__TTree));
-                            _E_Tree->addChild(std::move(__E_Tree));
+                            auto thirdE_PrimeTree = MakeNode(firstE_PrimeTree, E_);
+                            thirdE_PrimeTree->addChild(MakeNode(thirdE_PrimeTree, None));
+
+                            firstE_PrimeTree->addChild(std::move(plusLeaf));
+                            firstE_PrimeTree->addChild(std::move(secondTTree));
+                            firstE_PrimeTree->addChild(std::move(thirdE_PrimeTree));
                         }
 
-                        _ETree->addChild(std::move(_TTree));
-                        _ETree->addChild(std::move(_E_Tree));
+                        innerETree->addChild(std::move(firstTTree));
+                        innerETree->addChild(std::move(firstE_PrimeTree));
                     }
-                    auto closeParenTree = std::make_unique<Leaf<char>>(TTree.get(), closeParen, ')');
 
-                    TTree->addChild(std::move(openParenTree));
-                    TTree->addChild(std::move(_ETree));
-                    TTree->addChild(std::move(closeParenTree));
+                    auto closeParenLeaf = MakeLeaf(TTree, closeParen, ')');
+
+                    TTree->addChild(std::move(openParenLeaf));
+                    TTree->addChild(std::move(innerETree));
+                    TTree->addChild(std::move(closeParenLeaf));
                 }
-                auto E_Tree = std::make_unique<Node>(ETree.get(), E_);
-                E_Tree->addChild(std::make_unique<Node>(E_Tree.get(), None));
+
+                auto outerE_PrimeTree = MakeNode(ETree, E_);
+                outerE_PrimeTree->addChild(MakeNode(outerE_PrimeTree, None));
 
                 ETree->addChild(std::move(TTree));
-                ETree->addChild(std::move(E_Tree));
+                ETree->addChild(std::move(outerE_PrimeTree));
             }
 
             expectTree->addChild(std::move(ETree));
         }
         auto realTree = parser.buildTree(inputString);
-        ASSERT_TRUE(realTree);
-        //EXPECT_EQ(*realTree, *expectTree);
+        ASSERT_NE(realTree, nullptr);
+        EXPECT_EQ(*realTree, *expectTree);
+    }
+}
+
+TEST(TestLL, TestParser12) {
+    /*
+        S -> I D;
+        D -> I D | .I D | e;
+        I -> 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+    */
+    const Terminal dot{"."}, i0{"0"}, i1{"1"}, i2{"2"}, i3{"3"}, i4{"4"},
+        i5{"5"}, i6{"6"}, i7{"7"}, i8{"8"}, i9{"9"};
+    const NonTerminal I{"I"}, D{"D"};
+
+    ProductionRules rules;
+    rules.newProduction(S) >> I >> D;
+    rules.newProduction(D) >> I >> D >> Or >> dot >> I >> D >> Or >> None;
+    rules.newProduction(I)
+        >> i0 >> Or
+        >> i1 >> Or
+        >> i2 >> Or
+        >> i3 >> Or
+        >> i4 >> Or
+        >> i5 >> Or
+        >> i6 >> Or
+        >> i7 >> Or
+        >> i8 >> Or
+        >> i9;
+
+    Parser<char> parser{std::move(rules)};
+    {
+        const std::array inputString = {'1', '2', '3'};
+        auto expectTree = MakeNode(NodePtrType{}, S);
+        {
+            auto ITree = MakeNode(expectTree, I);
+            ITree->addChild(MakeLeaf(ITree, i1, '1'));
+            auto DTree = MakeNode(expectTree, D);
+            {
+                auto _ITree = MakeNode(DTree, I);
+                _ITree->addChild(MakeLeaf(_ITree, i2, '2'));
+                auto _DTree = MakeNode(DTree, D);
+                {
+                    auto __ITree = MakeNode(_DTree, I);
+                    __ITree->addChild(MakeLeaf(__ITree, i3, '3'));
+                    auto __DTree = MakeNode(_DTree, D);
+                    __DTree->addChild(MakeNode(__DTree, None));
+
+                    _DTree->addChild(std::move(__ITree));
+                    _DTree->addChild(std::move(__DTree));
+                }
+
+                DTree->addChild(std::move(_ITree));
+                DTree->addChild(std::move(_DTree));
+            }
+
+            expectTree->addChild(std::move(ITree));
+            expectTree->addChild(std::move(DTree));
+        }
+        auto realTree = parser.buildTree(inputString);
+        ASSERT_NE(realTree, nullptr);
+        EXPECT_EQ(*realTree, *expectTree);
+    }
+    {
+        const std::array inputString = {'1', '.', '3'};
+        auto expectTree = MakeNode(NodePtrType{}, S);
+        {
+            auto ITree = MakeNode(expectTree, I);
+            ITree->addChild(MakeLeaf(ITree, i1, '1'));
+
+            auto DTree = MakeNode(expectTree, D);
+            {
+                DTree->addChild(MakeLeaf(DTree, dot, '.'));
+
+                auto _ITree = MakeNode(DTree, I);
+                _ITree->addChild(MakeLeaf(_ITree, i3, '3'));
+
+                auto _DTree = MakeNode(DTree, D);
+                _DTree->addChild(MakeNode(_DTree, None));
+
+                DTree->addChild(std::move(_ITree));
+                DTree->addChild(std::move(_DTree));
+            }
+
+            expectTree->addChild(std::move(ITree));
+            expectTree->addChild(std::move(DTree));
+        }
+
+        auto realTree = parser.buildTree(inputString);
+        ASSERT_NE(realTree, nullptr);
+        EXPECT_EQ(*realTree, *expectTree);
+    }
+}
+
+TEST(TestLL, Test13) {
+    /*
+        S -> '{' List '}';
+        List -> Item | e;
+        Item -> 'v' | 'v' ',' Item | 'v' ',' S;
+
+        FIRST(S) = {'{'};
+        FIRST(List) = {FIRST(Item), e} = {'v', e};
+        FIRST(Item) = {'v'};
+
+        FOLLOW(S) = {$};
+        FOLLOW(List) = {'}'};
+        FOLLOW(Item) = {$};
+    */
+
+    const Terminal v{"v"}, comma{","}, openList{"{"}, closeList{"}"};
+    const NonTerminal List{"List"}, Item{"Item"};
+
+    ProductionRules rules;
+    rules.newProduction(S) >> openList >> List >> closeList;
+    rules.newProduction(List) >> Item >> Or >> None;
+    rules.newProduction(Item) >> v >> Or >> v >> comma >> Item >> Or >> v >> comma >> S;
+    Parser<char> parser{std::move(rules)};
+    {
+        const std::array inputString = {'{','}'};
+        auto realTree = parser.buildTree(inputString);
+        ASSERT_NE(realTree, nullptr);
+    }
+    {
+        const std::array inputString = {'{', 'v', '}'};
+        auto realTree = parser.buildTree(inputString);
+        ASSERT_NE(realTree, nullptr);
+    }
+    {
+        const std::array inputString = {'{', 'v', ',', 'v', '}'};
+        auto realTree = parser.buildTree(inputString);
+        ASSERT_NE(realTree, nullptr);
+    }
+    {
+        const std::array inputString = {'{', 'v', ',', 'v', ',', '{', 'v', '}', '}'};
+        auto realTree = parser.buildTree(inputString);
+        ASSERT_NE(realTree, nullptr);
     }
 }
 
@@ -1521,5 +1683,3 @@ TEST(TestGrammar, TestFirst4) {
         EXPECT_EQ(real, expect);
     }
 }
-
-#endif //! #if defined(ENABLE_LL_TESTS)

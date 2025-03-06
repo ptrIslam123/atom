@@ -230,29 +230,29 @@ void Parser<T, A>::shift(const Item& currentItem) {
 
 template<typename T, typename A>
 void Parser<T, A>::reduce(const Item& reducingItem) {
-    using namespace grammar;
-    using namespace ast;
-    const auto& reducingProduction = reducingItem.getProduction();
-    ASSERTION(reducingProduction.size() <= m_nodeContext.size(), BadLR, "")
-    ASSERTION(reducingProduction.size() <= m_itemsContext.size(), BadLR, "")
+    // using namespace grammar;
+    // using namespace ast;
+    // const auto& reducingProduction = reducingItem.getProduction();
+    // ASSERTION(reducingProduction.size() <= m_nodeContext.size(), BadLR, "")
+    // ASSERTION(reducingProduction.size() <= m_itemsContext.size(), BadLR, "")
 
-    auto newRootNode = std::make_unique<Node>(nullptr, reducingItem.getLeft());
-    for (auto it = reducingProduction.crbegin(); it != reducingProduction.crend(); ++it) {
-        auto node = std::move(m_nodeContext.back());
-        ASSERTION(node->getSymbol() == *it, BadLR, "")
+    // auto newRootNode = std::make_unique<Node>(nullptr, reducingItem.getLeft());
+    // for (auto it = reducingProduction.crbegin(); it != reducingProduction.crend(); ++it) {
+    //     auto node = std::move(m_nodeContext.back());
+    //     ASSERTION(node->getSymbol() == *it, BadLR, "")
 
-        node->setParent(newRootNode.get());
-        newRootNode->addChild(std::move(node));
+    //     node->setParent(newRootNode.get());
+    //     newRootNode->addChild(std::move(node));
 
-        m_nodeContext.pop_back();
-        m_itemsContext.pop_back();
-    }
-    m_nodeContext.push_back(std::move(newRootNode));
+    //     m_nodeContext.pop_back();
+    //     m_itemsContext.pop_back();
+    // }
+    // m_nodeContext.push_back(std::move(newRootNode));
 
-    ASSERTION(!m_itemsContext.empty(), BadLR, "")
-    auto result = m_cgReqHandler.requestGoto(m_itemsContext.back(), m_nodeContext.back()->getSymbol());
-    ASSERTION(result.has_value(), BadLR, "")
-    m_itemsContext.push_back(*result);
+    // ASSERTION(!m_itemsContext.empty(), BadLR, "")
+    // auto result = m_cgReqHandler.requestGoto(m_itemsContext.back(), m_nodeContext.back()->getSymbol());
+    // ASSERTION(result.has_value(), BadLR, "")
+    // m_itemsContext.push_back(*result);
 }
 
 template<typename T, typename A>

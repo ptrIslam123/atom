@@ -1,13 +1,12 @@
 #include <thread>
 #include <mutex>
-#include <string>
 
 #include "include/utils/tsan_object.h"
 
 using namespace atom::utils::tsan;
 
 constexpr auto N = 100000;
-MutableObject<int> GCounter;
+Object<int> GCounter;
 std::mutex GMutex;
 
 void DataRaceTest() {

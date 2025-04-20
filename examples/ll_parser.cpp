@@ -2,9 +2,8 @@
 #include "include/cfg/ll.h"
 
 #include <iostream>
-#include <cassert>
-
 #include <array>
+#include <cassert>
 
 using namespace atom::cfg::grammar;
 using namespace atom::cfg::ll;

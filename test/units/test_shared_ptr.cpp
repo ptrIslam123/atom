@@ -233,3 +233,55 @@ TEST(TestSharedPtr, TestCustomAllocator) {
     }
     EXPECT_EQ(counter, 0);
 }
+
+TEST(TestSharedPtr, TestWithСCyclicDataStructures) {
+    struct Node;
+    using SharedNodePtr = atom::memory::NonAtomicSharedPtr<Node>;
+    using WeakNodePtr = atom::memory::NonAtomicWeakPtr<Node>;
+
+    static bool isSAlive{false}, isBAlive{false}, isCAlive{false}, isAAlive{false}, iscAlive{false}, isaAlive{false}, isbAlive{false};
+    struct Node {
+        using NodePtrType = SharedNodePtr;
+        using ParentPtrType = WeakNodePtr;
+        using ChildsType = std::vector<NodePtrType>;
+
+        Node(ParentPtrType _parent, std::string _id):
+        parent(_parent),
+        childs(),
+        id(_id)
+        {}
+
+        ~Node() {
+            childs.clear();
+            id.clear();
+        }
+
+        void addChild(NodePtrType child) {
+            childs.push_back(child);
+        }
+
+        ParentPtrType parent;
+        ChildsType childs;
+        std::string id;
+    };
+
+    auto S = SharedNodePtr::Make(SharedNodePtr{}, "S");
+    {
+        auto A = SharedNodePtr::Make(S, "B");
+        {
+            A->addChild(SharedNodePtr::Make(A, "a"));
+        }
+        auto B = SharedNodePtr::Make(S, "B");
+        {
+            B->addChild(SharedNodePtr::Make(B, "b"));
+        }
+        auto C = SharedNodePtr::Make(S, "C");
+        {
+            C->addChild(SharedNodePtr::Make(C, "c"));
+        }
+
+        S->addChild(A);
+        S->addChild(B);
+        S->addChild(C);
+    }
+}

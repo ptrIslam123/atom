@@ -21,38 +21,38 @@ void Dump(std::ostream& os, const Node* node, int depth) {
 
 namespace atom::ast {
 
-Node::Node(NodePtrType parent, const SymbolType& symbol):
-m_parent(parent),
-m_symbol(symbol),
-m_childs() {}
+// Node::Node(ParenPtrType parent, const SymbolType& symbol):
+// m_parent(parent),
+// m_symbol(symbol),
+// m_childs() {}
 
-const Node::SymbolType& Node::getSymbol() const { return m_symbol; }
-const Node::SymbolType& Node::getSymbol() { return m_symbol; }
+// const Node::SymbolType& Node::getSymbol() const { return m_symbol; }
+// const Node::SymbolType& Node::getSymbol() { return m_symbol; }
 
-Node::NodePtrType const Node::getParent() const { return m_parent; }
-Node::NodePtrType const Node::getParent() { return m_parent; }
+// Node::NodePtrType const Node::getParent() const { return m_parent.tryLock(); }
+// Node::NodePtrType const Node::getParent() { return m_parent.tryLock(); }
 
-void Node::addChild(NodePtrType child) {
-    m_childs.push_back(std::move(child));
-}
+// void Node::addChild(NodePtrType child) {
+//     m_childs.push_back(std::move(child));
+// }
 
-void Node::addChilds(ChildsType&& childs) {
-    for (auto& child : childs) {
-        m_childs.push_back(std::move(child));
-    }
-}
+// void Node::addChilds(ChildsType&& childs) {
+//     for (auto& child : childs) {
+//         m_childs.push_back(std::move(child));
+//     }
+// }
 
-void Node::removeChilds() {
-    m_childs.clear();
-}
+// void Node::removeChilds() {
+//     m_childs.clear();
+// }
 
-void Node::setParent(NodePtrType parent) {
-    assert(*this != *parent);
-    m_parent = parent;
-}
+// void Node::setParent(NodePtrType parent) {
+//     assert(*this != *parent);
+//     m_parent = parent;
+// }
 
-const Node::ChildsType& Node::getChilds() const { return m_childs; }
-const Node::ChildsType& Node::getChilds() { return m_childs; }
+// const Node::ChildsType& Node::getChilds() const { return m_childs; }
+// const Node::ChildsType& Node::getChilds() { return m_childs; }
 
 std::ostream& Node::operator<<(std::ostream& os) const
 {

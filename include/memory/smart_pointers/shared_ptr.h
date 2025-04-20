@@ -499,7 +499,7 @@ public:
      *         empty SharedPtr otherwise
      * @note This operation is thread-safe
      */
-    SharedPtr<T, C> tryLock() noexcept;
+    SharedPtr<T, C> tryLock() const noexcept;
 
     /**
      * @brief Checks if the managed object has been deleted
@@ -758,7 +758,7 @@ void WeakPtr<T, C>::clear() {
 }
 
 template<typename T, typename C>
-SharedPtr<T, C> WeakPtr<T, C>::tryLock() noexcept {
+SharedPtr<T, C> WeakPtr<T, C>::tryLock() const noexcept {
     if (m_controlBlock != nullptr && m_controlBlock->tryAcquireStrongly()) {
         return SharedPtr<T, C>{m_controlBlock};
     }
@@ -911,7 +911,7 @@ public:
             throw;
         }
 
-        controlBlock->m_strongRefCount.setValue(1);
+        controlBlock->m_strongRefCount = 1;
         return controlBlock;
     }
 
@@ -945,7 +945,7 @@ public:
             throw;
         }
 
-        controlBlock->m_strongRefCount.setValue(1);
+        controlBlock->m_strongRefCount = 1;
         controlBlock->m_allocator = allocator;
         return controlBlock;
     }
@@ -967,63 +967,78 @@ public:
     }
 
     bool tryAcquireStrongly() noexcept {
-        auto result  = true;
-        m_strongRefCount.accessMutable([&result](RefCountType& strongRefCount) {
-            if (strongRefCount > 0) {
-                ++strongRefCount;
-            } else {
-                result = false;
-            }
-        });
-        return result;
+        // template<>
+        // inline bool _Sp_counted_base<_S_single>::_M_add_ref_lock_nothrow() noexcept
+        // {
+        //     if (_M_use_count == 0)
+        //         return false;
+        //     ++_M_use_count;
+        //     return true;
+        // }
+        if (m_strongRefCount == 0) {
+            return false;
+        } else {
+            ++m_strongRefCount;
+            return true;
+        }
     }
     bool tryAcquireWeakly() noexcept {
-        auto result = true;
-        m_weakRefCount.accessMutable([&result, this](RefCountType& weakRefCount) {
-            if (weakRefCount > 0) {
-                ++weakRefCount;
-            } else if (weakRefCount == 0 && strongRefCount() > 0) {
-                ++weakRefCount;
-            } else {
-                result = false;
-            }
-        });
-        return result;
+        // template<>
+        // inline void _Sp_counted_base<_S_single>::_M_weak_add_ref() noexcept {
+        //     ++_M_weak_count;
+        // }
+        if (weakRefCount() > 0) {
+            ++m_weakRefCount;
+            return true;
+        } else if (weakRefCount() == 0 && strongRefCount() > 0) {
+            ++m_weakRefCount;
+            return true;
+        }
+        return false;
     }
 
     template<typename T>
     void releaseStrongly() {
-        RefCountType strongRefCount = 0;
-        m_strongRefCount.accessMutable([&strongRefCount](RefCountType& _strongRefCount) {
-            strongRefCount = --_strongRefCount;
-        });
-
-        if (strongRefCount == 0) {
+        // template<>
+        // inline void _Sp_counted_base<_S_single>::_M_release() noexcept
+        // {
+        //     if (--_M_use_count == 0)
+        //     {
+        //         _M_dispose();
+        //         if (--_M_weak_count == 0)
+        //             _M_destroy();
+        //     }
+        // }
+        --m_strongRefCount;
+        if (m_strongRefCount == 0) {
+            ++m_weakRefCount;
             clearUserData<T>();
-        }
-
-        if (weakRefCount() == 0 && strongRefCount == 0) {
-            clearControlBlock<T>();
+            if (--m_weakRefCount == 0) {
+                clearControlBlock<T>();
+            }
         }
     }
 
     template<typename T>
     void releaseWeakly() {
-        RefCountType weakRefCount = 0;
-        m_weakRefCount.accessMutable([&weakRefCount](RefCountType& _weakRefCount) {
-            weakRefCount = --_weakRefCount;
-        });
-        if (weakRefCount == 0 && strongRefCount() == 0) {
+        // template<>
+        // inline void _Sp_counted_base<_S_single>::_M_weak_release() noexcept
+        // {
+        //     if (--_M_weak_count == 0)
+        //         _M_destroy();
+        // }
+        --m_weakRefCount;
+        if (m_weakRefCount == 0 && m_strongRefCount == 0) {
             clearControlBlock<T>();
         }
     }
 
     RefCountType strongRefCount() const noexcept {
-        return m_strongRefCount.getValue();
+        return m_strongRefCount;
     }
 
     RefCountType weakRefCount() const noexcept {
-        return m_weakRefCount.getValue();
+        return m_weakRefCount;
     }
 
     const std::byte* getUserData() const { return (reinterpret_cast<std::byte*>(this) + sizeof(*this)); }
@@ -1048,8 +1063,8 @@ private:
         Deallocate<T>(this);
     }
 
-    utils::tsan::Object<RefCountType> m_strongRefCount{0};
-    utils::tsan::Object<RefCountType> m_weakRefCount{0};
+    RefCountType m_strongRefCount{0};
+    RefCountType m_weakRefCount{0};
     utils::Reference<AllocatorType> m_allocator;
     // ... user data
 };

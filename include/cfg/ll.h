@@ -234,6 +234,7 @@ Parser<T, A>::NodePtrType Parser<T, A>::buildTree(std::span<const T> tokens) {
             ASSERTION(false, BadLL, "")
         }
     }
+    m_context.clear();
     return rootNode;
 }
 

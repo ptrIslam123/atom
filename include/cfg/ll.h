@@ -42,9 +42,6 @@ public:
     const SymbolSetType& requestFirst(const SymbolType& symbol);
     const SymbolSetType& requestFollow(const SymbolType& symbol);
 
-    template<typename T>
-    std::span<const T>::iterator findStartTokenForDerivation(std::span<const T> tokens, const DerivationType& derivation);
-
 private:
     SymbolSetType makeFirst(const SymbolType& symbol);
     SymbolSetType makeFollow(const SymbolType& symbol);
@@ -75,7 +72,7 @@ private:
     using SymbolType = grammar::Symbol;
     using TerminalType = grammar::Terminal;
     using NonTerminalType = grammar::NonTerminal;
-    using TokenIndexType = TokensType::size_type;
+    using TokenIndexType = typename TokensType::size_type;
     using StackType = std::vector<std::pair<SymbolType, NodePtrType>>;
 
     struct Context {
@@ -113,7 +110,8 @@ m_tokens()
 {}
 
 template<typename T, typename A>
-const Parser<T, A>::ProductionType& Parser<T, A>::chooseFitProduction(const ProductionsType& productions, NodePtrType currentRootNode) {
+const typename Parser<T, A>::ProductionType& 
+Parser<T, A>::chooseFitProduction(const ProductionsType& productions, NodePtrType currentRootNode) {
     using namespace grammar;
     assert(!productions.isEmpty());
     if (productions.size() == 1) {
@@ -205,7 +203,8 @@ void Parser<T, A>::handleNonTerminal(const NonTerminalType& symbol, NodePtrType 
 }
 
 template<typename T, typename A>
-Parser<T, A>::NodePtrType Parser<T, A>::buildTree(std::span<const T> tokens) {
+typename Parser<T, A>::NodePtrType 
+Parser<T, A>::buildTree(std::span<const T> tokens) {
     using namespace ast;
     using namespace grammar;
 
@@ -239,12 +238,14 @@ Parser<T, A>::NodePtrType Parser<T, A>::buildTree(std::span<const T> tokens) {
 }
 
 template<typename T, typename A>
-Parser<T, A>::NodePtrType Parser<T, A>::allocateNode(NodePtrType parent, const SymbolType& symbol) {
+typename Parser<T, A>::NodePtrType 
+Parser<T, A>::allocateNode(NodePtrType parent, const SymbolType& symbol) {
     return NodePtrType::Make(parent, symbol);
 }
 
 template<typename T, typename A>
-Parser<T, A>::NodePtrType Parser<T, A>::allocateLeaf(NodePtrType parent, const TerminalType& symbol, const T& token) {
+typename Parser<T, A>::NodePtrType 
+Parser<T, A>::allocateLeaf(NodePtrType parent, const TerminalType& symbol, const T& token) {
     return memory::NonAtomicSharedPtr<ast::Leaf<T>>::Make(parent, symbol, token);
 }
 

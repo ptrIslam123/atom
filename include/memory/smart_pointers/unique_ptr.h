@@ -370,12 +370,12 @@ void UniquePtr<T, A>::clear() {
 }
 
 template<typename T, typename A>
-UniquePtr<T, A>::RefAllocatorType UniquePtr<T, A>::getAllocator() {
+typename UniquePtr<T, A>::RefAllocatorType UniquePtr<T, A>::getAllocator() {
     return m_allocator;
 }
 
 template<typename T, typename A>
-UniquePtr<T, A>::PointerType UniquePtr<T, A>::get() {
+typename UniquePtr<T, A>::PointerType UniquePtr<T, A>::get() {
     if (m_ptr) {
         return m_ptr;
     } else {
@@ -385,7 +385,7 @@ UniquePtr<T, A>::PointerType UniquePtr<T, A>::get() {
 }
 
 template<typename T, typename A>
-UniquePtr<T, A>::ConstPointerType UniquePtr<T, A>::get() const {
+typename UniquePtr<T, A>::ConstPointerType UniquePtr<T, A>::get() const {
     if (m_ptr) {
         return m_ptr;
     } else {
@@ -395,22 +395,22 @@ UniquePtr<T, A>::ConstPointerType UniquePtr<T, A>::get() const {
 }
 
 template<typename T, typename A>
-UniquePtr<T, A>::ReferenceType UniquePtr<T, A>::operator*() & {
+typename UniquePtr<T, A>::ReferenceType UniquePtr<T, A>::operator*() & {
     return *get();
 }
 
 template<typename T, typename A>
-UniquePtr<T, A>::ConstReferenceType UniquePtr<T, A>::operator*() const & {
+typename UniquePtr<T, A>::ConstReferenceType UniquePtr<T, A>::operator*() const & {
     return *get();
 }
 
 template<typename T, typename A>
-UniquePtr<T, A>::PointerType UniquePtr<T, A>::operator->() & {
+typename UniquePtr<T, A>::PointerType UniquePtr<T, A>::operator->() & {
     return get();
 }
 
 template<typename T, typename A>
-UniquePtr<T, A>::ConstPointerType UniquePtr<T, A>::operator->() const & {
+typename UniquePtr<T, A>::ConstPointerType UniquePtr<T, A>::operator->() const & {
     return get();
 }
 
@@ -475,12 +475,12 @@ UniquePtr<const T, A>& UniquePtr<const T, A>::operator=(UniquePtr<const ValueTyp
 }
 
 template<typename T, typename A>
-UniquePtr<const T, A>::ConstReferenceType UniquePtr<const T, A>::operator*() const & {
+typename UniquePtr<const T, A>::ConstReferenceType UniquePtr<const T, A>::operator*() const & {
     return m_ptr.operator*();
 }
 
 template<typename T, typename A>
-UniquePtr<const T, A>::ConstPointerType UniquePtr<const T, A>::operator->() const & {
+typename UniquePtr<const T, A>::ConstPointerType UniquePtr<const T, A>::operator->() const & {
     return m_ptr.operator->();
 }
 
@@ -532,7 +532,7 @@ void UniquePtr<const T, A>::clear() {
 }
 
 template<typename T, typename A>
-UniquePtr<const T, A>::RefAllocatorType UniquePtr<const T, A>::getAllocator() {
+typename UniquePtr<const T, A>::RefAllocatorType UniquePtr<const T, A>::getAllocator() {
     return m_ptr.getAllocator();
 }
 

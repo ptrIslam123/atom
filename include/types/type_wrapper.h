@@ -109,7 +109,9 @@ public:
 
     // Comparison operators
     bool operator==(const Derived& other) const;
+#if __cplusplus < 202002L // c++20
     bool operator!=(const Derived& other) const;
+#endif
     bool operator<(const Derived& other) const;
     bool operator<=(const Derived& other) const;
     bool operator>(const Derived& other) const;
@@ -302,6 +304,7 @@ bool TypeWrapper<T, Derived, OPT>::operator==(const Derived& other) const {
     }
 }
 
+#if __cplusplus < 202002L
 template<typename T, typename Derived, std::int32_t OPT>
 bool TypeWrapper<T, Derived, OPT>::operator!=(const Derived& other) const {
     if constexpr ((OPT & TYPE_WRAPPER_OPT_NE) != 0) {
@@ -310,6 +313,7 @@ bool TypeWrapper<T, Derived, OPT>::operator!=(const Derived& other) const {
         static_assert((OPT & TYPE_WRAPPER_OPT_NE) != 0, "Inequality operator is not enabled");
     }
 }
+#endif
 
 template<typename T, typename Derived, std::int32_t OPT>
 bool TypeWrapper<T, Derived, OPT>::operator<(const Derived& other) const {

@@ -21,8 +21,8 @@ using NaturalNumber = Number<std::size_t, 1>;
 using Index = Number<std::size_t>;
 using Size = Index;
 
-using F32 = FloatingNumber<float, 1e-6f>;
-using F64 = FloatingNumber<double, 1e-9>;
+// using F32 = FloatingNumber<float, 1e-6f>;
+// using F64 = FloatingNumber<double, 1e-9>;
 
 } //! namespace atom::types
 

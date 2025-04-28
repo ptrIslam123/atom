@@ -118,7 +118,7 @@ TEST(TestNumbers, TestWithLimitationValues) {
         Number<int> v1{1};
         Number<unsigned int> v2{0};
         EXPECT_NO_THROW(v2.storeOpt(v1.load()));
-        EXPECT_EQ(v1.load(), v2.load());
+        EXPECT_TRUE(v1.load() == v2.load());
     }
     {
         Number<int> v1{-1};
@@ -130,26 +130,26 @@ TEST(TestNumbers, TestWithLimitationValues) {
 TEST(TestNumbers, TestOpt) {
     {
         Number<int> v{0};
-        EXPECT_EQ(v.load(), 0);
+        EXPECT_TRUE(v.load() == 0);
     }
     {
         Number<int> v1{10};
         Number<int> v2{v1};
-        EXPECT_EQ(v2.load(), 10);
+        EXPECT_TRUE(v2.load() == 10);
     }
     {
         Number<int> v1{10};
         ++v1;
-        EXPECT_EQ(v1.load(), 11);
+        EXPECT_TRUE(v1.load() == 11);
         v1 -= Number<int>{3};
-        EXPECT_EQ(v1.load(), 8);
+        EXPECT_TRUE(v1.load() == 8);
     }
     {
         Number<int> v1{10};
         v1 *= Number<int>{2};
-        EXPECT_EQ(v1.load(), 20);
+        EXPECT_TRUE(v1.load() == 20);
         v1 /= Number<int>{10};
-        EXPECT_EQ(v1.load(), 2);
+        EXPECT_TRUE(v1.load() == 2);
     }
     {
         Number<int> v1{10};
@@ -166,43 +166,43 @@ TEST(TestNumbers, TestOpt) {
         Number<int> v1{20};
         Number<int> v2{5};
         Number<int> v3 = v1 - v2;
-        EXPECT_EQ(v3.load(), 15);
+        EXPECT_TRUE(v3.load() == 15);
     }
     {
         Number<int> v1{3};
         Number<int> v2{4};
         Number<int> v3 = v1 * v2;
-        EXPECT_EQ(v3.load(), 12);
+        EXPECT_TRUE(v3.load() == 12);
     }
     {
         Number<int> v1{20};
         Number<int> v2{4};
         Number<int> v3 = v1 / v2;
-        EXPECT_EQ(v3.load(), 5);
+        EXPECT_TRUE(v3.load() == 5);
     }
     {
         Number<int> v1{20};
         Number<int> v2{3};
         Number<int> v3 = v1 % v2;
-        EXPECT_EQ(v3.load(), 2);
+        EXPECT_TRUE(v3.load() == 2);
     }
     {
         Number<int> v1{10};
         Number<int> v2 = v1++;
-        EXPECT_EQ(v1.load(), 11);
-        EXPECT_EQ(v2.load(), 10);
+        EXPECT_TRUE(v1.load() == 11);
+        EXPECT_TRUE(v2.load() == 10);
     }
     {
         Number<int> v1{10};
         Number<int> v2 = v1.operator++(int{});
-        EXPECT_EQ(v1.load(), 11);
-        EXPECT_EQ(v2.load(), 10);
+        EXPECT_TRUE(v1.load() == 11);
+        EXPECT_TRUE(v2.load() == 10);
     }
     {
         Number<int> v1{10};
         Number<int> v2 = v1--;
-        EXPECT_EQ(v1.load(), 9);
-        EXPECT_EQ(v2.load(), 10);
+        EXPECT_TRUE(v1.load() == 9);
+        EXPECT_TRUE(v2.load() == 10);
     }
     {
         Number<int> v1{5};
@@ -226,63 +226,63 @@ TEST(TestNumbers, TestOpt) {
         Number<int> v1{10};
         Number<int> v2{5};
         v1 += v2;
-        EXPECT_EQ(v1.load(), 15);
+        EXPECT_TRUE(v1.load() == 15);
     }
     {
         Number<int> v1{10};
         Number<int> v2{5};
         v1 -= v2;
-        EXPECT_EQ(v1.load(), 5);
+        EXPECT_TRUE(v1.load() == 5);
     }
     {
         Number<int> v1{10};
         Number<int> v2{5};
         v1 *= v2;
-        EXPECT_EQ(v1.load(), 50);
+        EXPECT_TRUE(v1.load() == 50);
     }
     {
         Number<int> v1{10};
         Number<int> v2{5};
         v1 /= v2;
-        EXPECT_EQ(v1.load(), 2);
+        EXPECT_TRUE(v1.load() == 2);
     }
     {
         Number<int> v1{10};
         Number<int> v2{3};
         v1 %= v2;
-        EXPECT_EQ(v1.load(), 1);
+        EXPECT_TRUE(v1.load() == 1);
     }
     {
         Number<int> v1{1};
         v1 <<= Number<int>{2};
-        EXPECT_EQ(v1.load(), 4);
+        EXPECT_TRUE(v1.load() == 4);
     }
     {
         Number<int> v1{8};
         v1 >>= Number<int>{2};
-        EXPECT_EQ(v1.load(), 2);
+        EXPECT_TRUE(v1.load() == 2);
     }
     {
         Number<int> v1{0b1100};
         Number<int> v2{0b1010};
         v1 &= v2;
-        EXPECT_EQ(v1.load(), 0b1000);
+        EXPECT_TRUE(v1.load() == 0b1000);
     }
     {
         Number<int> v1{0b1100};
         Number<int> v2{0b1010};
         v1 |= v2;
-        EXPECT_EQ(v1.load(), 0b1110);
+        EXPECT_TRUE(v1.load() == 0b1110);
     }
     {
         Number<int> v1{0b1100};
         Number<int> v2{0b1010};
         v1 ^= v2;
-        EXPECT_EQ(v1.load(), 0b0110);
+        EXPECT_TRUE(v1.load() == 0b0110);
     }
     {
         Number<int> v1{0b1100};
         v1 = ~v1;
-        EXPECT_EQ(v1.load(), static_cast<int>(~0b1100));
+        EXPECT_TRUE(v1.load() == static_cast<int>(~0b1100));
     }
 }

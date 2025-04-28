@@ -8,15 +8,15 @@
 
 namespace atom::automaton {
 
-FSM<char> MakeSpecialSymbolFSMAnalyzer(std::span<const std::pair<char/*special symbol*/, State/*final state*/>> data);
-FSM<char> MakeNumberFSMAnalyzer(
-    const State& integerNumber,
-    const State& floatingNumber,
-    const State& hexNumber,
-    const State& binaryNumber
+FSM MakeSpecialSymbolFSMAnalyzer(std::span<const std::pair<FSM::SymbolType/*special symbol*/, State/*final state*/>> data);
+FSM MakeNumberFSMAnalyzer(
+   const State& integerNumber,
+   const State& floatingNumber,
+   const State& hexNumber,
+   const State& binaryNumber
 );
-FSM<char> MakeWordFSMAnalyzer(const State& word);
-FSM<char> MakeTemporalExpressionsFSMAnalyzer(const State& tempExpr);
+FSM MakeWordFSMAnalyzer(const State& word);
+FSM MakeTemporalExpressionsFSMAnalyzer(const State& tempExpr);
 
 } //! namespace atom::automaton
 

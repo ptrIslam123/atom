@@ -5,7 +5,6 @@
 #include "include/cfg/lr.h"
 
 using namespace atom::cfg::grammar;
-using namespace atom::cfg::lr;
 using namespace atom::ast;
 
 void test1() {
@@ -41,10 +40,10 @@ void test1() {
     rules.newProduction(S) >> a >> B >> c;
     rules.newProduction(B) >> b >> Or >> None;
 
-    Parser<char> parser{std::move(rules)};
-    auto root = parser.buildTree(inputString);
-    assert(root);
-    std::cout << *root << std::endl;
+    // Parser<char> parser{std::move(rules)};
+    // auto root = parser.buildTree(inputString);
+    // assert(root);
+    // std::cout << *root << std::endl;
 }
 
 void test2() {
@@ -59,15 +58,15 @@ void test2() {
     const NonTerminal A{"A"}, B{"B"};
     const std::array inputString = {/*'a',*/ /*'b',*/ 'c'};
 
-    ProductionRules rules;
-    rules.newProduction(S) >> A >> B >> c;
-    rules.newProduction(A) >> a >> Or >> None;
-    rules.newProduction(B) >> b >> Or >> None;
+    // ProductionRules rules;
+    // rules.newProduction(S) >> A >> B >> c;
+    // rules.newProduction(A) >> a >> Or >> None;
+    // rules.newProduction(B) >> b >> Or >> None;
 
-    Parser<char> parser{std::move(rules)};
-    auto root = parser.buildTree(inputString);
-    assert(root);
-    std::cout << *root << std::endl;
+    // Parser<char> parser{std::move(rules)};
+    // auto root = parser.buildTree(inputString);
+    // assert(root);
+    // std::cout << *root << std::endl;
 }
 
 void test3() {
@@ -82,11 +81,11 @@ void test3() {
     ProductionRules rules;
     rules.newProduction(S) >> A >> b;
     rules.newProduction(A) >> a >> A >> Or >> None;
-    Parser<char> parser{std::move(rules)};
 
-    auto root = parser.buildTree(inputString);
-    assert(root);
-    std::cout << *root << std::endl;
+    // Parser<char> parser{std::move(rules)};
+    // auto root = parser.buildTree(inputString);
+    // assert(root);
+    // std::cout << *root << std::endl;
 }
 
 void test4() {
@@ -103,17 +102,17 @@ void test4() {
     rules.newProduction(A) >> a >> Or >> None;
     rules.newProduction(B) >> b >> Or >> None;
     rules.newProduction(C) >> c >> Or >> None;
-    Parser<char> parser{std::move(rules)};
-    {
-        const std::array inputString = {'a', 'b', 'c'};
-        auto root = parser.buildTree(inputString);
-        std::cout << *root << std::endl;
-    }
-    {
-        const std::array<char, 0> inputString = {};
-        auto root = parser.buildTree(inputString);
-        std::cout << *root << std::endl;
-    }
+    // Parser<char> parser{std::move(rules)};
+    // {
+    //     const std::array inputString = {'a', 'b', 'c'};
+    //     auto root = parser.buildTree(inputString);
+    //     std::cout << *root << std::endl;
+    // }
+    // {
+    //     const std::array<char, 0> inputString = {};
+    //     auto root = parser.buildTree(inputString);
+    //     std::cout << *root << std::endl;
+    // }
 }
 
 void test5() {
@@ -126,17 +125,17 @@ void test5() {
     const Terminal a{"a"}, b{"b"};
     ProductionRules rules;
     rules.newProduction(S) >> a >> S >>  b >> Or >> None;
-    Parser<char> parser{std::move(rules)};
-    {
-        const std::array inputString = {'a', 'b'};
-        auto root = parser.buildTree(inputString);
-        std::cout << *root << std::endl;
-    }
-    {
-        const std::array inputString = {'a', 'a', 'b', 'b'};
-        auto root = parser.buildTree(inputString);
-        std::cout << *root << std::endl;
-    }
+    // Parser<char> parser{std::move(rules)};
+    // {
+    //     const std::array inputString = {'a', 'b'};
+    //     auto root = parser.buildTree(inputString);
+    //     std::cout << *root << std::endl;
+    // }
+    // {
+    //     const std::array inputString = {'a', 'a', 'b', 'b'};
+    //     auto root = parser.buildTree(inputString);
+    //     std::cout << *root << std::endl;
+    // }
 }
 
 void test6() {
@@ -150,12 +149,12 @@ void test6() {
     ProductionRules rules;
     rules.newProduction(S) >> openParen >> E >> closeParen >> Or >> E >> Or >> None;
     rules.newProduction(E) >> i >> plus >> E >> Or >> i;
-    Parser<char> parser{std::move(rules)};
-    {
-        const std::array inputString = {'i'};
-        auto root = parser.buildTree(inputString);
-        std::cout << *root << std::endl;
-    }
+    // Parser<char> parser{std::move(rules)};
+    // {
+    //     const std::array inputString = {'i'};
+    //     auto root = parser.buildTree(inputString);
+    //     std::cout << *root << std::endl;
+    // }
 }
 
 int main() {

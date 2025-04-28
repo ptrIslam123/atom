@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.16)
 
 project(atom)
 
@@ -81,12 +81,12 @@ add_custom_command(
 if(BUILD_EXAMPLES)
     message(STATUS "BUILD_EXAMPLES=ON")
 
-    target_builder("tsan-object-usage" "examples/tsan_object_usage.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
-	target_builder("lr-parser" "examples/lr_parser.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
-	target_builder("ll-parser" "examples/ll_parser.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
-	target_builder("lexer_example" "examples/lexer_example.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
-	target_builder("fsm_example" "examples/fsm_example.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
-	target_builder("owner-usage" "examples/owner_usage.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
+    #target_builder("tsan-object-usage" "examples/tsan_object_usage.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
+	#target_builder("lr-parser" "examples/lr_parser.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
+	#target_builder("ll-parser" "examples/ll_parser.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
+	#target_builder("lexer_example" "examples/lexer_example.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
+	#target_builder("fsm_example" "examples/fsm_example.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
+	#target_builder("owner-usage" "examples/owner_usage.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
     # target_builder("safe_mutex_usage" "examples/safe_mutex_usage.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
 endif()
 

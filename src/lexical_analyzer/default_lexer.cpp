@@ -2,7 +2,6 @@
 
 #include "include/automaton/fsm.h"
 #include "include/automaton/fsm_ops.h"
-#include "include/automaton/default_fsms.h"
 
 // namespace atom::lexical_analyzer {
 

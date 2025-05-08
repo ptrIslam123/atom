@@ -1,6 +1,8 @@
 #ifndef ATOM_DEFAULT_ALLOCATOR_H
 #define ATOM_DEFAULT_ALLOCATOR_H
 
+#include "include/types/pre-defined_types.h"
+
 #include <stdexcept>
 #include <new>
 #include <utility>
@@ -25,7 +27,7 @@ struct DefaultAllocator final {
      *                    Returns nullptr if allocation fails.
      * @throws std::bad_alloc If the operation fails.
      */
-    std::byte* allocate(std::size_t size);
+    std::byte* allocate(types::Size size);
 
     /**
      * @brief Reallocates a previously allocated block of memory to a new size.
@@ -38,7 +40,7 @@ struct DefaultAllocator final {
      *
      * @note If reallocation fails, the original memory block remains unchanged.
      */
-    void reallocate(std::byte*& start, std::size_t size);
+    void reallocate(std::byte*& start, types::Size size);
 
     /**
      * @brief Deallocates a previously allocated block of memory.
@@ -82,8 +84,8 @@ struct DefaultAllocator final {
     void destruct(T* object);
 };
 
-inline std::byte* DefaultAllocator::allocate(std::size_t size) {
-    auto ptr = reinterpret_cast<std::byte*>(malloc(size));
+inline std::byte* DefaultAllocator::allocate(const types::Size size) {
+    auto ptr = reinterpret_cast<std::byte*>(malloc(size.load()));
     if (ptr) {
         return ptr;
     } else {
@@ -91,8 +93,8 @@ inline std::byte* DefaultAllocator::allocate(std::size_t size) {
     }
 }
 
-inline void DefaultAllocator::reallocate(std::byte*& start, std::size_t size) {
-    start = static_cast<std::byte*>(realloc(static_cast<std::byte*>(start), size));
+inline void DefaultAllocator::reallocate(std::byte*& start, const types::Size size) {
+    start = static_cast<std::byte*>(realloc(static_cast<std::byte*>(start), size.load()));
     if (!start) {
         throw std::bad_alloc{};
     }

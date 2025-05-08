@@ -7,7 +7,7 @@
 #include <utility>
 #include <atomic>
 
-namespace atom::utils {
+namespace atom::utils::owner {
 
 #ifndef NDEBUG
 
@@ -15,9 +15,9 @@ template<typename T, typename RC> class Reference;
 template<typename T, typename RC> class Reference<const T, RC>;
 
 /**
- * @class Owner
+ * @class Object
  *
- * @brief The `Owner` class manages the lifetime of an object and provides mechanisms for borrowing immutable or mutable references.
+ * @brief The `Object` class manages the lifetime of an object and provides mechanisms for borrowing immutable or mutable references.
  * It uses link counting to track active borrowings to spot potential dangling link cases.
  *
  * @tparam T The type of the managed object. Must not be volatile.
@@ -27,7 +27,7 @@ template<typename T, typename RC> class Reference<const T, RC>;
  * this class provides a thread-safe mechanism for detecting potentially dangling references.
  */
 template<typename T, typename RC = std::uint32_t>
-class Owner final {
+class Object final {
 public:
     static_assert(!std::is_volatile_v<T>);
     using RefCountType = RC; //! Type used for reference counting.
@@ -38,7 +38,7 @@ public:
     using ConstPointerType = const ValueType*; //! Const pointer type to the managed object.
 
     /**
-     * @brief Constructs the `Owner` with the provided arguments to initialize the managed object.
+     * @brief Constructs the `Object` with the provided arguments to initialize the managed object.
      *
      * This constructor forwards the given arguments to the constructor of the managed object.
      *
@@ -46,27 +46,27 @@ public:
      * @param arg Arguments to forward to the constructor of the managed object.
      */
     template<typename... Arg>
-    Owner(Arg&&... arg);
+    Object(Arg&&... arg);
 
     /**
      * @brief Deleted copy constructor.
      *
-     * Copying an `Owner` is not allowed to ensure single ownership semantics.
+     * Copying an `Object` is not allowed to ensure single ownership semantics.
      * @details Why can't this class be moved or copied? There is no reason to leave the ability to copy/move the owner of the object
      * due to the fact that all references to the owner of the object are immediately invalidated.
      */
-    Owner(const Owner& other) = delete;
-    Owner(Owner&& other) = delete;
-    Owner& operator=(const Owner& other) = delete;
-    Owner& operator=(Owner&& other) = delete;
+    Object(const Object& other) = delete;
+    Object(Object&& other) = delete;
+    Object& operator=(const Object& other) = delete;
+    Object& operator=(Object&& other) = delete;
 
     /**
      * @brief Destructor.
      *
-     * Destroys the `Owner` and the managed object if there are no active borrows.
+     * Destroys the `Object` and the managed object if there are no active borrows.
      * @warning The destructor may panic if there are still references to the owner's data.
      */
-    ~Owner();
+    ~Object();
 
     /**
      * @brief Borrows an immutable reference to the managed object.
@@ -138,9 +138,9 @@ private:
 
 /**
  * @class Reference
- * @brief A class representing a reference to an object managed by an `Owner`.
+ * @brief A class representing a reference to an object managed by an `Object`.
  *
- * The `Reference` class provides access to an object managed by an `Owner` and ensures proper reference counting.
+ * The `Reference` class provides access to an object managed by an `Object` and ensures proper reference counting.
  * It tracks whether the reference is valid and prevents accessing the object after it has been invalidated.
  *
  * @tparam T The type of the managed object. Must not be volatile.
@@ -149,7 +149,7 @@ private:
 template<typename T, typename RC = std::uint32_t>
 class Reference final {
 public:
-    using OwnerType = Owner<T, RC>; //! Type of the `Owner` managing the referenced object.
+    using ObjectType = Object<T, RC>; //! Type of the `Object` managing the referenced object.
     using RefCountType = RC; //! Type used for reference counting.
     using ValueType = std::remove_const_t<T>; //! Type of the managed object without const qualifier.
     using ReferenceType = ValueType&; //! Reference type to the managed object.
@@ -225,30 +225,30 @@ public:
     /**
      * @brief Checks whether this reference is valid.
      *
-     * A reference is valid if it is associated with an active `Owner` and the managed object has not been destroyed.
+     * A reference is valid if it is associated with an active `Object` and the managed object has not been destroyed.
      *
      * @return `true` if the reference is valid, `false` otherwise.
      */
     bool isValid() const noexcept;
 
 private:
-    friend class Owner<ValueType, RC>;
-    friend class Owner<const ValueType, RC>;
+    friend class Object<ValueType, RC>;
+    friend class Object<const ValueType, RC>;
     friend class Reference<const ValueType, RC>;
 
-    explicit Reference(OwnerType* owner);
+    explicit Reference(ObjectType* owner);
     void copy(const Reference<ValueType, RC>& other) noexcept;
     void swap(Reference<ValueType, RC>& other) noexcept;
     ConstPointerType get() const;
     PointerType get();
 
-    OwnerType* m_owner{nullptr};
+    ObjectType* m_owner{nullptr};
 };
 
 template<typename T, typename RC>
 class Reference<const T, RC> final {
 public:
-    using OwnerType = Owner<T, RC>;
+    using ObjectType = Object<T, RC>;
     using RefCountType = RC;
     using ValueType = std::remove_const_t<T>;
     using ReferenceType = ValueType&;
@@ -276,32 +276,32 @@ public:
     bool isValid() const noexcept;
 
 private:
-    friend class Owner<ValueType, RC>;
-    friend class Owner<const ValueType, RC>;
+    friend class Object<ValueType, RC>;
+    friend class Object<const ValueType, RC>;
     friend class Reference<ValueType, RC>;
 
-    explicit Reference(const OwnerType* owner);
+    explicit Reference(const ObjectType* owner);
     void copy(const Reference<ValueType, RC>& other) noexcept;
     void copy(const Reference<const ValueType, RC>& other) noexcept;
     template<typename C> void swap(Reference<C, RC>& other) noexcept;
     ConstPointerType get() const;
 
-    const OwnerType* m_owner{nullptr};
+    const ObjectType* m_owner{nullptr};
 };
 
 template<typename T, typename RC>
 template<typename... Arg>
-Owner<T, RC>::Owner(Arg&&... arg):
+Object<T, RC>::Object(Arg&&... arg):
 m_data(std::forward<Arg>(arg)...) {}
 
 template<typename T, typename RC>
-Owner<T, RC>::~Owner() {
+Object<T, RC>::~Object() {
     PANIC(m_refCount.load() > 1)
 }
 
 template<typename T, typename RC>
 template<typename Func>
-void Owner<T, RC>::accessMutable(Func&& f) {
+void Object<T, RC>::accessMutable(Func&& f) {
     static_assert((!std::is_const_v<T> && std::is_invocable_v<Func, ValueType&>) &&
                   "T must be mutable and Func must accept T&");
     f(m_data);
@@ -309,26 +309,26 @@ void Owner<T, RC>::accessMutable(Func&& f) {
 
 template<typename T, typename RC>
 template<typename Func>
-void Owner<T, RC>::accessImmutable(Func&& f) const {
+void Object<T, RC>::accessImmutable(Func&& f) const {
     static_assert((!std::is_const_v<T> && std::is_invocable_v<Func, const ValueType&>) &&
                   "T must be mutable and Func must accept T&");
     f(m_data);
 }
 
 template<typename T, typename RC>
-void Owner<T, RC>::setValue(T newValue) {
+void Object<T, RC>::setValue(T newValue) {
     static_assert(std::is_trivial_v<T> && !std::is_const_v<T>);
     m_data = newValue;
 }
 
 template<typename T, typename RC>
-T Owner<T, RC>::getValue() const {
+T Object<T, RC>::getValue() const {
     static_assert(std::is_trivial_v<T>);
     return m_data;
 }
 
 template<typename T, typename RC>
-Reference<const typename Owner<T, RC>::ValueType, RC> Owner<T, RC>::borrowImmutable() const noexcept {
+Reference<const typename Object<T, RC>::ValueType, RC> Object<T, RC>::borrowImmutable() const noexcept {
     using ReferenceType = Reference<const ValueType, RC>;
     if (incrementRefCount()) {
         return ReferenceType{this};
@@ -338,7 +338,7 @@ Reference<const typename Owner<T, RC>::ValueType, RC> Owner<T, RC>::borrowImmuta
 }
 
 template<typename T, typename RC>
-Reference<typename Owner<T, RC>::ValueType, RC> Owner<T, RC>::borrowMutable() noexcept {
+Reference<typename Object<T, RC>::ValueType, RC> Object<T, RC>::borrowMutable() noexcept {
     static_assert(!std::is_const_v<T> && "T must be mutable");
     using ReferenceType = Reference<ValueType, RC>;
     if (incrementRefCount()) {
@@ -349,7 +349,7 @@ Reference<typename Owner<T, RC>::ValueType, RC> Owner<T, RC>::borrowMutable() no
 }
 
 template<typename T, typename RC>
-bool Owner<T, RC>::incrementRefCount() const noexcept {
+bool Object<T, RC>::incrementRefCount() const noexcept {
     // Important: The ABA problem is not a problem here because:
     // 1. We are only interested in the current value of the counter, not its history of changes
     // 2. Even if A->B->A occurred between load and CAS, the final value will be correct
@@ -364,7 +364,7 @@ bool Owner<T, RC>::incrementRefCount() const noexcept {
 }
 
 template<typename T, typename RC>
-bool Owner<T, RC>::decrementRefCount() const noexcept {
+bool Object<T, RC>::decrementRefCount() const noexcept {
     // Important: The ABA problem is not a problem here because:
     // 1. We are only interested in the current value of the counter, not its history of changes
     // 2. Even if A->B->A occurred between load and CAS, the final value will be correct
@@ -444,7 +444,7 @@ template<typename T, typename RC>
 bool Reference<T, RC>::isValid() const noexcept { return m_owner != nullptr; }
 
 template<typename T, typename RC>
-Reference<T, RC>::Reference(OwnerType* owner):
+Reference<T, RC>::Reference(ObjectType* owner):
 m_owner(owner)
 {}
 
@@ -552,7 +552,7 @@ template<typename T, typename RC>
 bool Reference<const T, RC>::isValid() const noexcept { return m_owner != nullptr; }
 
 template<typename T, typename RC>
-Reference<const T, RC>::Reference(const OwnerType* owner) : m_owner(owner) {}
+Reference<const T, RC>::Reference(const ObjectType* owner) : m_owner(owner) {}
 
 template<typename T, typename RC>
 void Reference<const T, RC>::copy(const Reference<ValueType, RC>& other) noexcept {
@@ -590,7 +590,7 @@ template<typename T, typename RC>
 class Reference;
 
 template<typename T, typename RC = std::uint32_t>
-class Owner final {
+class Object final {
 public:
     static_assert(!std::is_volatile_v<T>);
     using RefCountType = RC;
@@ -601,12 +601,12 @@ public:
     using ConstPointerType = const ValueType*;
 
     template<typename ... Arg>
-    Owner(Arg&& ... arg): m_data(std::forward<Arg>(arg) ... ) {}
-    Owner(const Owner& other) = delete;
-    Owner(Owner&& other) = delete;
-    Owner& operator=(const Owner& other) = delete;
-    Owner& operator=(Owner&& other) = delete;
-    ~Owner() = default;
+    Object(Arg&& ... arg): m_data(std::forward<Arg>(arg) ... ) {}
+    Object(const Object& other) = delete;
+    Object(Object&& other) = delete;
+    Object& operator=(const Object& other) = delete;
+    Object& operator=(Object&& other) = delete;
+    ~Object() = default;
 
     ConstReferenceType operator*() const noexcept { return m_data; }
     ReferenceType operator*() noexcept { return m_data; }
@@ -631,7 +631,7 @@ private:
 template<typename T, typename RC = std::uint32_t>
 class Reference final {
 public:
-    using OwnerType = Owner<T, RC>;
+    using ObjectType = Object<T, RC>;
     using RefCountType = RC;
     using ValueType = std::remove_const_t<T>;
     using ReferenceType = ValueType&;
@@ -673,8 +673,8 @@ public:
     inline bool isValid() const noexcept { return m_ptr != nullptr; };
 
 private:
-    friend class Owner<ValueType, RC>;
-    friend class Owner<const ValueType, RC>;
+    friend class Object<ValueType, RC>;
+    friend class Object<const ValueType, RC>;
     friend class Reference<const ValueType, RC>;
 
     explicit Reference(T* ptr): m_ptr(ptr) {}
@@ -685,7 +685,7 @@ private:
 template<typename T, typename RC>
 class Reference<const T, RC> final {
 public:
-    using OwnerType = Owner<T, RC>;
+    using ObjectType = Object<T, RC>;
     using RefCountType = RC;
     using ValueType = std::remove_const_t<T>;
     using ReferenceType = ValueType&;
@@ -732,8 +732,8 @@ public:
     inline bool isValid() const noexcept { return m_ptr != nullptr; };
 
 private:
-    friend class Owner<ValueType, RC>;
-    friend class Owner<const ValueType, RC>;
+    friend class Object<ValueType, RC>;
+    friend class Object<const ValueType, RC>;
     friend class Reference<ValueType, RC>;
 
     Reference(const T* ptr): m_ptr(ptr) {}
@@ -742,14 +742,14 @@ private:
 };
 #endif //! NDEBUG
 
-} //! namespace atom::utils
+} //! namespace atom::utils::owner
 
 namespace std {
 
 
 template<typename T, typename RC>
-inline void swap(atom::utils::Reference<T, RC>& a, atom::utils::Reference<T, RC>& b) noexcept {
-    atom::utils::Reference<T, RC> tmp{a};
+inline void swap(atom::utils::owner::Reference<T, RC>& a, atom::utils::owner::Reference<T, RC>& b) noexcept {
+    atom::utils::owner::Reference<T, RC> tmp{a};
     a = std::move(b);
     b = std::move(tmp);
 }

@@ -131,7 +131,7 @@ public:
     using ReferenceType = ValueType&; ///< Reference type to the managed object.
     using ConstReferenceType = ValueType const&; ///< Const reference type to the managed object.
     using AllocatorType = A; ///< Type of the allocator used for memory management.
-    using RefAllocatorType = utils::Reference<AllocatorType>; ///< Safe reference type to the allocator.
+    using RefAllocatorType = utils::owner::Reference<AllocatorType>; ///< Safe reference type to the allocator.
 
     /**
      * @brief Creates a new `UniquePtr` instance with the given arguments.
@@ -144,7 +144,7 @@ public:
      * @return A `UniquePtr` instance managing the newly created object.
      */
     template<typename ... Arg>
-    static UniquePtr Make(utils::Reference<AllocatorType> allocator, Arg&& ... arg);
+    static UniquePtr Make(utils::owner::Reference<AllocatorType> allocator, Arg&& ... arg);
 
     /**
      * @brief Creates a new `UniquePtr` instance with the given arguments using the default allocator.
@@ -217,7 +217,7 @@ public:
      * @brief getAllocator
      * @return A safe reference to the allocator.
      */
-    utils::Reference<AllocatorType> getAllocator();
+    utils::owner::Reference<AllocatorType> getAllocator();
 
 private:
     template<typename, typename>
@@ -235,7 +235,7 @@ private:
     template<typename D, typename S, typename _A>
     friend UniquePtr<D, _A> ConstCast(UniquePtr<S, _A>&& other);
 
-    using AllocatorRefType = utils::Reference<AllocatorType>;
+    using AllocatorRefType = utils::owner::Reference<AllocatorType>;
     explicit UniquePtr(PointerType ptr, AllocatorRefType allocator = AllocatorRefType{});
 
     void swap(UniquePtr& other) noexcept;
@@ -258,10 +258,10 @@ public:
     using ConstPointerType = ValueType const*;
     using ConstReferenceType = ValueType const&;
     using AllocatorType = A;
-    using RefAllocatorType = utils::Reference<AllocatorType>;
+    using RefAllocatorType = utils::owner::Reference<AllocatorType>;
 
     template<typename ... Arg>
-    static UniquePtr Make(utils::Owner<AllocatorType>& allocator, Arg&& ... arg);
+    static UniquePtr Make(utils::owner::Reference<AllocatorType> allocator, Arg&& ... arg);
 
     template<typename ... Arg>
     static UniquePtr Make(Arg&& ... arg);
@@ -292,10 +292,10 @@ private:
 
 template<typename T, typename A>
 template<typename ... Arg>
-UniquePtr<T, A> UniquePtr<T, A>::Make(utils::Reference<AllocatorType> allocator, Arg&& ... arg) {
+UniquePtr<T, A> UniquePtr<T, A>::Make(utils::owner::Reference<AllocatorType> allocator, Arg&& ... arg) {
     PointerType ptr = nullptr;
     allocator.accessMutable([&ptr, &arg ...](AllocatorType& _allocator) mutable {
-        ptr = reinterpret_cast<PointerType>(_allocator.allocate(sizeof(ValueType)));
+        ptr = reinterpret_cast<PointerType>(_allocator.allocate(types::Size{sizeof(ValueType)}));
         _allocator.construct(ptr, std::forward<Arg>(arg) ...);
     });
     return UniquePtr{ptr, allocator};
@@ -306,7 +306,7 @@ template<typename ... Arg>
 UniquePtr<T, A> UniquePtr<T, A>::Make(Arg&& ... arg) {
     static_assert(std::is_same_v<AllocatorType, allocator::DefaultAllocator> && "AllocatorType must be DefaultAllocator in this case");
     AllocatorType allocator;
-    PointerType ptr = reinterpret_cast<PointerType>(allocator.allocate(sizeof(ValueType)));
+    PointerType ptr = reinterpret_cast<PointerType>(allocator.allocate(types::Size{sizeof(ValueType)}));
     allocator.construct(ptr, std::forward<Arg>(arg) ...);
     return UniquePtr{ptr};
 }
@@ -434,7 +434,7 @@ bool UniquePtr<T, A>::operator!=(const std::nullptr_t ptr) const noexcept {
 
 template<typename T, typename A>
 template<typename ... Arg>
-UniquePtr<const T, A> UniquePtr<const T, A>::Make(utils::Owner<AllocatorType>& allocator, Arg&& ... arg) {
+UniquePtr<const T, A> UniquePtr<const T, A>::Make(utils::owner::Reference<AllocatorType> allocator, Arg&& ... arg) {
     return UniquePtr<const T, A>{UniquePtr<T, A>::Make(allocator, std::forward<Arg>(arg) ...)};
 }
 

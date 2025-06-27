@@ -37,7 +37,8 @@ using namespace atom::utils;
 
 TEST(TestOwner, TestOwner) {
     Owner<Foo> foo{0, "test"};
-    foo.accessMutable([](Foo& _foo) {
+    auto ref = foo.borrowMutable();
+    ref.accessMutable([](Foo& _foo) {
         EXPECT_EQ(_foo.m_iValue, 0);
         EXPECT_EQ(_foo.m_sValue, "test");
 
@@ -47,7 +48,7 @@ TEST(TestOwner, TestOwner) {
 
     // foo.getValue(); // Compile error - OK!
 
-    auto ref = foo.borrowMutable();
+    foo.borrowMutable();
     auto cpRef{ref};
     auto cref = foo.borrowImmutable();
 

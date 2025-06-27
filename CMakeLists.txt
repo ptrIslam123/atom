@@ -80,6 +80,7 @@ add_custom_command(
 #******************************************************* Build example dir *******************************************************#
 if(BUILD_EXAMPLES)
     message(STATUS "BUILD_EXAMPLES=ON")
+    target_builder("static_mem_pool" "examples/static_mem_pool.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
 
     #target_builder("tsan-object-usage" "examples/tsan_object_usage.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")
 	#target_builder("lr-parser" "examples/lr_parser.cpp" "" "" "${PROJECT_NAME};pthread" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "examples")

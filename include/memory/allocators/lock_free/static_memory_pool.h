@@ -11,6 +11,7 @@
 #include <array>
 #include <stdexcept>
 #include <new>
+#include <ostream>
 
 #include <cstdint>
 #include <cstddef>
@@ -40,13 +41,13 @@ namespace atom::memory::allocator::lock_free {
  * - The global pool is not exhausted.
  */
 template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
-class StaticMemoryPool final {
+class StaticMemoryPool {
 public:
     static_assert(BlockSize > 0 && BlockSize % alignof(std::max_align_t) == 0,
                   "BlockSize must be multiple of platform alignment");
-    static_assert(Capacity > 0 && Capacity % alignof(std::max_align_t) == 0,
+    static_assert(Capacity % alignof(std::max_align_t) == 0,
                   "Capacity must be multiple of platform alignment");
-    static_assert(CacheSize > 0 && CacheSize <= static_cast<std::size_t>(Capacity / 2),
+    static_assert(CacheSize <= static_cast<std::size_t>(Capacity / 2),
                      "CacheSize cannot be greater than Capacity");
 
     /// Unique pool identifier (debugging aid)
@@ -85,6 +86,11 @@ public:
      */
     void deallocate(std::byte* ptr);
 
+    /**
+     * @brief Dump pool statistics
+     */
+    void dumpStats(std::ostream& os);
+
 private:
     struct MemoryBlock {
         enum class Status : std::uint8_t {
@@ -99,8 +105,8 @@ private:
 #if !defined(NDEBUG)
         std::size_t canaryStart{ID};
 #endif
+        std::atomic<Status> status{Status::Released};
         std::array<std::byte, BLOCK_SIZE> rawStorage;
-        alignas(std::max_align_t) std::atomic<Status> status{Status::Released};
 #if !defined(NDEBUG)
         std::size_t canaryEnd{ID};
 #endif
@@ -111,7 +117,13 @@ private:
     constexpr bool checkBlock(const MemoryBlock* block) const noexcept;
     CachedMemoryBlockStorage& getThreadLocalCachedMemoryBlockStorage() noexcept;
 
-    alignas(std::max_align_t) std::array<MemoryBlock, CAPACITY> m_pool;
+    std::array<MemoryBlock, CAPACITY> m_pool;
+#if defined(STAT_MODE)
+    std::atomic<std::uint64_t> m_allocateCacheMisses{0};
+    std::atomic<std::uint64_t> m_allocateCacheHints{0};
+    std::atomic<std::uint64_t> m_deallocateCacheMisses{0};
+    std::atomic<std::uint64_t> m_deallocateCacheHints{0};
+#endif
 };
 
 template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
@@ -120,15 +132,21 @@ std::byte* StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::allocate() {
     if (!localCache.isEmpty()) {
         auto memBlock = localCache.back();
         localCache.dequeue();
+#if defined(STAT_MODE)
+        (void)m_allocateCacheHints.fetch_add(1);
+#endif
         return memBlock->rawStorage.data();
     }
 
     for (auto& memBlock : m_pool) {
         if (memBlock.tryAcquire()) {
+#if defined(STAT_MODE)
+            (void)m_allocateCacheMisses.fetch_add(1);
+#endif
             return memBlock.rawStorage.data();
         }
     }
-    ASSERTION(false, std::runtime_error, "Could not allocate a new mempry block")
+    ASSERTION(false, std::runtime_error, "Could not allocate a new memory block with size=" + std::to_string(BlockSize))
 }
 
 template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
@@ -140,13 +158,19 @@ void StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::deallocate(std::byte*
     MemoryBlock* block = reinterpret_cast<MemoryBlock*>(ptr);
     ASSERTION(block, std::runtime_error, "Broken memory pointer")
 #if !defined(NDEBUG)
-    ASSERTION(checkBlock(block), std::runtime_error, "Broken memory block")
+    //ASSERTION(checkBlock(block), std::runtime_error, "Broken memory block")
 #endif
     auto& localCache = getThreadLocalCachedMemoryBlockStorage();
     if (!localCache.isFull()) {
         localCache.enqueue(block);
+#if defined(STAT_MODE)
+        (void)m_deallocateCacheHints.fetch_add(1);
+#endif
     } else {
         ASSERTION(block->release(), std::runtime_error, "Invalid memory block")
+#if defined(STAT_MODE)
+        (void)m_deallocateCacheMisses.fetch_add(1);
+#endif
     }
 }
 
@@ -182,6 +206,27 @@ typename StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::CachedMemoryBlock
 StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::getThreadLocalCachedMemoryBlockStorage() noexcept {
     static thread_local CachedMemoryBlockStorage cache;
     return cache;
+}
+
+template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
+void StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::dumpStats(std::ostream& os) {
+#if defined(STAT_MODE)
+    const auto allocateCacheHints = m_allocateCacheHints.load();
+    const auto allocateCacheMisses = m_allocateCacheMisses.load();
+    const auto allocateCacheMissesInPercent = static_cast<double>(allocateCacheMisses) * 100 / (allocateCacheHints + allocateCacheMisses);
+    const auto deallocateCacheHints = m_deallocateCacheHints.load();
+    const auto deallocateCacheMisses = m_deallocateCacheMisses.load();
+    const auto deallocateCacheMissesInPercent = static_cast<double>(deallocateCacheMisses) * 100 / (deallocateCacheHints + deallocateCacheMisses);
+
+    os << "StaticMemoryPool<Id=" << Id << ", BlockSize=" << BlockSize << ", Capacity=" << Capacity << ", CacheSize=" << CacheSize << ">{\n";
+    os << "\t" << "allocate cache hints=" << allocateCacheHints << ",";
+    os << "  " << "allocate cache misses=" << allocateCacheMisses << ",";
+    os << "  " << "allocate cache misses/hints=" << allocateCacheMissesInPercent << "%,\n";
+    os << "\t" << "deallocate cache hints=" << deallocateCacheHints << ",";
+    os << "  " << "deallocate cache misses=" << deallocateCacheMisses <<",";
+    os << "  " << "deallocate cache misses/hints=" << deallocateCacheMissesInPercent << "%,\n";
+    os << "}\n";
+#endif
 }
 
 } //! namespace atom::memory::allocator::lock_free

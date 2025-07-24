@@ -11,7 +11,6 @@ namespace {
 
 struct TestAllocator final {
     std::byte* allocate(std::size_t size) { return allocator.allocate(size); }
-    void reallocate(std::byte*& start, std::size_t size) { allocator.reallocate(start, size); }
     void deallocate(std::byte* start) { allocator.deallocate(start); }
 
     template<typename T, typename ... Arg>

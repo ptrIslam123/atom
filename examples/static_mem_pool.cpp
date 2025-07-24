@@ -6,6 +6,7 @@
 #include <cstdlib>
 
 #include "include/memory/allocators/lock_free/static_memory_pool.h"
+#include "include/memory/allocators/lock_free/static_allocator.h"
 
 constexpr auto Id = 0;
 constexpr auto MaxBlockSize = 1024;
@@ -24,6 +25,10 @@ struct Malloc {
 
     void deallocate(std::byte* ptr) {
         free(reinterpret_cast<void*>(ptr));
+    }
+
+    void dumpStats(std::ostream& /*os*/) {
+
     }
 };
 
@@ -96,6 +101,8 @@ void Test(A& allocator) {
         if (thread.joinable())
             thread.join();
     }
+
+    allocator.dumpStats(std::cout);
 }
 
 int main() {

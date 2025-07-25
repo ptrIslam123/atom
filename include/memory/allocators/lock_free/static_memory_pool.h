@@ -2,239 +2,231 @@
 #define ATOM_LOCK_FREE_STATIC_MEMORY_POOL_H
 
 #include "include/containers/static/ring_queue.h"
+#include "include/utils/assertion.h"
 
 #include <type_traits>
 #include <atomic>
+#include <algorithm>
+#include <optional>
 #include <array>
+#include <stdexcept>
+#include <new>
+#include <ostream>
+
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
+#include <cassert>
 
 namespace atom::memory::allocator::lock_free {
 
-template<std::size_t BlockSize, std::size_t Capacity>
-class StaticMemoryPool final {
-private:
-    struct ControlBlock {
-        std::uint32_t strongRefCount{0};
-        std::uint32_t weakRefCount{0};
-    };
-
-    struct MemoryBlock {
-        alignas(alignof(std::max_align_t)) std::byte memory[BlockSize];
-        std::atomic<ControlBlock> control;
-    };
-
-    std::array<MemoryBlock, Capacity> m_blocks{};
-
+/**
+ * @brief A thread-safe, lock-free static memory pool allocator.
+ *
+ * @tparam Id Unique identifier for the memory pool (used for debugging).
+ * @tparam BlockSize Size of each memory block (must be a multiple of platform alignment).
+ * @tparam Capacity Total number of blocks in the pool (must be a multiple of platform alignment).
+ * @tparam CacheSize Per-thread cache size (must be <= Capacity / 2).
+ *
+ * Allocation complexity:
+ * - **O(1)** if a free block is found in the thread-local cache.
+ * - **O(Capacity)** in the worst case (linear search through the global pool).
+ *
+ * Deallocation complexity:
+ * - **O(1)** if the thread-local cache has free slots.
+ * - **O(1)** (atomic operation) when returning to the global pool.
+ *
+ * @note The allocator provides amortized O(1) performance when:
+ * - CacheSize is properly sized for the workload.
+ * - The global pool is not exhausted.
+ */
+template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
+class StaticMemoryPool {
 public:
-    struct Descriptor {
-        Descriptor(const Descriptor& other) noexcept;
-        Descriptor(Descriptor&& other) noexcept;
-        Descriptor& operator=(const Descriptor& other) noexcept;
-        Descriptor& operator=(Descriptor&& other) noexcept;
+    static_assert(BlockSize > 0 && BlockSize % alignof(std::max_align_t) == 0,
+                  "BlockSize must be multiple of platform alignment");
+    static_assert(Capacity % alignof(std::max_align_t) == 0,
+                  "Capacity must be multiple of platform alignment");
+    static_assert(CacheSize <= static_cast<std::size_t>(Capacity / 2),
+                     "CacheSize cannot be greater than Capacity");
 
-        template<typename T>
-        T& interpretAs() noexcept;
+    /// Unique pool identifier (debugging aid)
+    static constexpr std::size_t ID = Id;
+    /// Size of individual memory blocks
+    static constexpr std::size_t BLOCK_SIZE = BlockSize;
+    /// Total capacity of the pool (number of blocks)
+    static constexpr std::size_t CAPACITY = Capacity;
+    /// Per-thread cache size (number of blocks)
+    static constexpr std::size_t CACHE_SIZE = CacheSize;
 
-        template<typename T>
-        const T& interpretAs() const noexcept;
-
-        bool operator==(const Descriptor& other) const noexcept;
-        bool operator==(std::nullptr_t /*ptr*/) const noexcept;
-
-        explicit Descriptor(std::atomic<ControlBlock>* ptr);
-        std::atomic<ControlBlock>* m_ptr{nullptr};
-    };
-
-    StaticMemoryPool(const StaticMemoryPool& ) = delete;
-    StaticMemoryPool(StaticMemoryPool&& ) noexcept = delete;
-    StaticMemoryPool& operator=(const StaticMemoryPool& ) = delete;
-    StaticMemoryPool& operator=(StaticMemoryPool&& ) noexcept = delete;
     explicit StaticMemoryPool() = default;
-    ~StaticMemoryPool() = default;
+    StaticMemoryPool(const StaticMemoryPool& ) = delete;
+    StaticMemoryPool(StaticMemoryPool&& ) = delete;
+    StaticMemoryPool& operator=(const StaticMemoryPool& ) = delete;
+    StaticMemoryPool& operator=(StaticMemoryPool&& ) = delete;
 
-    template<typename T>
-    class WeakPtr;
+    /**
+     * @brief Allocates a memory block.
+     * @return Pointer to the allocated memory.
+     * @throws std::runtime_error if no blocks are available.
+     *
+     *  * Allocation complexity:
+     * - **O(1)** if a free block is found in the thread-local cache.
+     * - **O(Capacity)** in the worst case (linear search through the global pool).
+     */
+    std::byte* allocate();
 
-    template<typename T>
-    class SharedPtr;
+    /**
+     * @brief Deallocates a memory block.
+     * @param ptr Pointer to the memory to deallocate.
+     *
+     *  * Deallocation complexity:
+     * - **O(1)** if the thread-local cache has free slots.
+     * - **O(1)** (atomic operation) when returning to the global pool.
+     */
+    void deallocate(std::byte* ptr);
 
-    template<typename T>
-    class SharedPtr final {
-    public:
-        explicit SharedPtr(Descriptor&& descriptor, StaticMemoryPool& allocator): m_descriptor(descriptor) {}
-        SharedPtr(const SharedPtr& other) {
-            (void)this->operator=(other);
-        }
-        SharedPtr(SharedPtr&& other) {
-            (void)this->operator=(std::move(other));
-        }
-        template<typename D, typename = std::enable_if_t<!std::is_same_v<T, D> && std::is_base_of_v<T, D>, D>>
-        SharedPtr(const SharedPtr<D>& other);
-        template<typename D, typename = std::enable_if_t<!std::is_same_v<T, D> && std::is_base_of_v<T, D>, D>>
-        SharedPtr(SharedPtr<D>&& other);
-        SharedPtr(std::nullptr_t ptr = nullptr) {
-            (void)this->operator=(ptr);
-        }
-        SharedPtr& operator=(const SharedPtr& other) {
-            clear();
-            copy(other);
-            return *this;
-        }
-        SharedPtr& operator=(SharedPtr&& other) {
-            clear();
-            swap(other);
-            return *this;
-        }
-        template<typename D, typename = std::enable_if_t<!std::is_same_v<T, D> && std::is_base_of_v<T, D>, D>>
-        SharedPtr& operator=(const SharedPtr<D>& other);
-        template<typename D, typename = std::enable_if_t<!std::is_same_v<T, D> && std::is_base_of_v<T, D>, D>>
-        SharedPtr& operator=(SharedPtr<D>&& other);
-        SharedPtr& operator=(std::nullptr_t /*ptr*/) {
-            clear();
-            return *this;
-        }
-        ~SharedPtr() {
-            clear();
-        }
-
-        void clear() {
-            if (m_descriptor != nullptr) {
-                for (;;) {
-                    ControlBlock current = m_descriptor.m_ptr->load();
-                    ControlBlock desired{current};
-                    --desired.strongRefCount;
-                    if (m_descriptor.m_ptr->compare_exchange_strong(current, desired)) {
-                        if (desired.strongRefCount == 0 && desired.weakRefCount == 0) {
-
-                        }
-                        return;
-                    }
-                }
-
-            }
-            m_descriptor = nullptr;
-        }
-
-    private:
-        friend StaticMemoryPool;
-
-        void swap(SharedPtr& other) {
-
-        }
-        void copy(const SharedPtr& other) {
-
-        }
-
-        Descriptor m_descriptor;
-        StaticMemoryPool& allocator;
-    };
-
-    template<typename T>
-    class WeakPtr final {/*TODO*/};
-
-    Descriptor allocate();
-    void deallocate(Descriptor&& descriptor);
-    constexpr std::size_t capacity() const noexcept;
+    /**
+     * @brief Dump pool statistics
+     */
+    void dumpStats(std::ostream& os);
 
 private:
-    using FreeDescriptosQueue = containers::StaticRingQueue<Descriptor, Capacity / 2>;
-    static FreeDescriptosQueue& getFreeDescriptorsQueue();
+    struct MemoryBlock {
+        enum class Status : std::uint8_t {
+            Acquired = 0,
+            Released
+        };
+
+        [[nodiscard]] Status getStatus() const noexcept;
+        [[nodiscard]] bool tryAcquire() noexcept;
+        [[nodiscard]] bool release() noexcept;
+
+#if !defined(NDEBUG)
+        std::size_t canaryStart{ID};
+#endif
+        std::atomic<Status> status{Status::Released};
+        std::array<std::byte, BLOCK_SIZE> rawStorage;
+#if !defined(NDEBUG)
+        std::size_t canaryEnd{ID};
+#endif
+    };
+
+    using CachedMemoryBlockStorage = containers::StaticRingQueue<MemoryBlock*, CACHE_SIZE>;
+
+    constexpr bool checkBlock(const MemoryBlock* block) const noexcept;
+    CachedMemoryBlockStorage& getThreadLocalCachedMemoryBlockStorage() noexcept;
+
+    std::array<MemoryBlock, CAPACITY> m_pool;
+#if defined(STAT_MODE)
+    std::atomic<std::uint64_t> m_allocateCacheMisses{0};
+    std::atomic<std::uint64_t> m_allocateCacheHints{0};
+    std::atomic<std::uint64_t> m_deallocateCacheMisses{0};
+    std::atomic<std::uint64_t> m_deallocateCacheHints{0};
+#endif
 };
 
-template<std::size_t BlockSize, std::size_t Capacity>
-constexpr std::size_t StaticMemoryPool<BlockSize, Capacity>::capacity() const noexcept {
-    return Capacity;
-}
+template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
+std::byte* StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::allocate() {
+    auto& localCache = getThreadLocalCachedMemoryBlockStorage();
+    if (!localCache.isEmpty()) {
+        auto memBlock = localCache.back();
+        localCache.dequeue();
+#if defined(STAT_MODE)
+        (void)m_allocateCacheHints.fetch_add(1);
+#endif
+        return memBlock->rawStorage.data();
+    }
 
-template<std::size_t BlockSize, std::size_t Capacity>
-typename StaticMemoryPool<BlockSize, Capacity>::Descriptor
-StaticMemoryPool<BlockSize, Capacity>::allocate() {
-    auto& freeDescriptors = getFreeDescriptorsQueue();
-    if (!freeDescriptors.isEmpty()) {
-        auto descriptor = freeDescriptors.back();
-        freeDescriptors.dequeue();
-        return descriptor;
-    } else {
-        for (MemoryBlock& block : m_blocks) {
-            ControlBlock current = block.control.load();
-            if (current.strongRefCount == 0 && current.weakRefCount == 0) {
-                ControlBlock desired{current};
-                ++desired.strongRefCount;
-                if (block.control.compare_exchange_strong(current, desired)) {
-                    return Descriptor{&block.control};
-                }
-            }
+    for (auto& memBlock : m_pool) {
+        if (memBlock.tryAcquire()) {
+#if defined(STAT_MODE)
+            (void)m_allocateCacheMisses.fetch_add(1);
+#endif
+            return memBlock.rawStorage.data();
         }
     }
-    return Descriptor{nullptr};
+    ASSERTION(false, std::runtime_error, "Could not allocate a new memory block with size=" + std::to_string(BlockSize))
 }
 
-template<std::size_t BlockSize, std::size_t Capacity>
-void StaticMemoryPool<BlockSize, Capacity>::deallocate(Descriptor&& descriptor) {
-    auto& freeDescriptors = getFreeDescriptorsQueue();
-    if (!freeDescriptors.isFull()) {
-        freeDescriptors.enqueue(std::move(descriptor));
+template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
+void StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::deallocate(std::byte* ptr) {
+    if (!ptr) [[unlikely]] {
+        return;
+    }
+
+    MemoryBlock* block = reinterpret_cast<MemoryBlock*>(ptr);
+    ASSERTION(block, std::runtime_error, "Broken memory pointer")
+#if !defined(NDEBUG)
+    //ASSERTION(checkBlock(block), std::runtime_error, "Broken memory block")
+#endif
+    auto& localCache = getThreadLocalCachedMemoryBlockStorage();
+    if (!localCache.isFull()) {
+        localCache.enqueue(block);
+#if defined(STAT_MODE)
+        (void)m_deallocateCacheHints.fetch_add(1);
+#endif
     } else {
-        descriptor.m_ptr->store(ControlBlock{});
+        ASSERTION(block->release(), std::runtime_error, "Invalid memory block")
+#if defined(STAT_MODE)
+        (void)m_deallocateCacheMisses.fetch_add(1);
+#endif
     }
 }
 
-template<std::size_t BlockSize, std::size_t Capacity>
-typename StaticMemoryPool<BlockSize, Capacity>::FreeDescriptosQueue&
-StaticMemoryPool<BlockSize, Capacity>::getFreeDescriptorsQueue() {
-    thread_local FreeDescriptosQueue queue;
-    return queue;
+template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
+typename StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::MemoryBlock::Status
+StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::MemoryBlock::getStatus() const noexcept {
+    return status.load();
 }
 
-template<std::size_t BlockSize, std::size_t Capacity>
-StaticMemoryPool<BlockSize, Capacity>::Descriptor::Descriptor(std::atomic<ControlBlock>* ptr):
-m_ptr(ptr) {}
-
-template<std::size_t BlockSize, std::size_t Capacity>
-StaticMemoryPool<BlockSize, Capacity>::Descriptor::Descriptor(const Descriptor& other) noexcept {
-    (void)this->operator=(other);
+template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
+bool StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::MemoryBlock::tryAcquire() noexcept {
+    auto expect = Status::Released;
+    return status.compare_exchange_strong(expect, Status::Acquired);
 }
 
-template<std::size_t BlockSize, std::size_t Capacity>
-StaticMemoryPool<BlockSize, Capacity>::Descriptor::Descriptor(Descriptor&& other) noexcept {
-    (void)this->operator=(other);
+template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
+bool StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::MemoryBlock::release() noexcept {
+    auto expect = Status::Acquired;
+    return status.compare_exchange_strong(expect, Status::Released);
 }
 
-template<std::size_t BlockSize, std::size_t Capacity>
-typename StaticMemoryPool<BlockSize, Capacity>::Descriptor&
-StaticMemoryPool<BlockSize, Capacity>::Descriptor::operator=(const Descriptor& other) noexcept {
-    std::memcpy(this, &other, sizeof(other));
-    return *this;
+template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
+constexpr bool StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::checkBlock(const MemoryBlock* block) const noexcept {
+#if !defined(NDEBUG)
+    return (block->canaryStart == ID && block->canaryEnd == ID);
+#else
+    return true;
+#endif
 }
 
-template<std::size_t BlockSize, std::size_t Capacity>
-template<typename T>
-T& StaticMemoryPool<BlockSize, Capacity>::Descriptor::interpretAs() noexcept {
-    return *reinterpret_cast<T*>(reinterpret_cast<std::byte*>(m_ptr) - BlockSize);
+template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
+typename StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::CachedMemoryBlockStorage&
+StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::getThreadLocalCachedMemoryBlockStorage() noexcept {
+    static thread_local CachedMemoryBlockStorage cache;
+    return cache;
 }
 
-template<std::size_t BlockSize, std::size_t Capacity>
-template<typename T>
-const T& StaticMemoryPool<BlockSize, Capacity>::Descriptor::interpretAs() const noexcept {
-    return *reinterpret_cast<const T*>(reinterpret_cast<std::byte*>(m_ptr) - BlockSize);
-}
+template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
+void StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::dumpStats(std::ostream& os) {
+#if defined(STAT_MODE)
+    const auto allocateCacheHints = m_allocateCacheHints.load();
+    const auto allocateCacheMisses = m_allocateCacheMisses.load();
+    const auto allocateCacheMissesInPercent = static_cast<double>(allocateCacheMisses) * 100 / (allocateCacheHints + allocateCacheMisses);
+    const auto deallocateCacheHints = m_deallocateCacheHints.load();
+    const auto deallocateCacheMisses = m_deallocateCacheMisses.load();
+    const auto deallocateCacheMissesInPercent = static_cast<double>(deallocateCacheMisses) * 100 / (deallocateCacheHints + deallocateCacheMisses);
 
-template<std::size_t BlockSize, std::size_t Capacity>
-typename StaticMemoryPool<BlockSize, Capacity>::Descriptor&
-StaticMemoryPool<BlockSize, Capacity>::Descriptor::operator=(Descriptor&& other) noexcept {
-    return this->operator=(other);
-}
-
-template<std::size_t BlockSize, std::size_t Capacity>
-bool StaticMemoryPool<BlockSize, Capacity>::Descriptor::operator==(const Descriptor& other) const noexcept {
-    return m_ptr == other.m_ptr;
-}
-
-template<std::size_t BlockSize, std::size_t Capacity>
-bool StaticMemoryPool<BlockSize, Capacity>::Descriptor::operator==(std::nullptr_t /*ptr*/) const noexcept {
-    return m_ptr == nullptr;
+    os << "StaticMemoryPool<Id=" << Id << ", BlockSize=" << BlockSize << ", Capacity=" << Capacity << ", CacheSize=" << CacheSize << ">{\n";
+    os << "\t" << "allocate cache hints=" << allocateCacheHints << ",";
+    os << "  " << "allocate cache misses=" << allocateCacheMisses << ",";
+    os << "  " << "allocate cache misses/hints=" << allocateCacheMissesInPercent << "%,\n";
+    os << "\t" << "deallocate cache hints=" << deallocateCacheHints << ",";
+    os << "  " << "deallocate cache misses=" << deallocateCacheMisses <<",";
+    os << "  " << "deallocate cache misses/hints=" << deallocateCacheMissesInPercent << "%,\n";
+    os << "}\n";
+#endif
 }
 
 } //! namespace atom::memory::allocator::lock_free

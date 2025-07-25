@@ -33,11 +33,12 @@ struct Foo final {
 } //! namespace
 
 
-using namespace atom::utils::owner;
+using namespace atom::utils::bc;
 
 TEST(TestOwner, TestOwner) {
-    Object<Foo> foo{0, "test"};
-    foo.accessMutable([](Foo& _foo) {
+    Owner<Foo> foo{0, "test"};
+    auto ref = foo.borrowMutable();
+    ref.accessMutable([](Foo& _foo) {
         EXPECT_EQ(_foo.m_iValue, 0);
         EXPECT_EQ(_foo.m_sValue, "test");
 
@@ -47,7 +48,7 @@ TEST(TestOwner, TestOwner) {
 
     // foo.getValue(); // Compile error - OK!
 
-    auto ref = foo.borrowMutable();
+    foo.borrowMutable();
     auto cpRef{ref};
     auto cref = foo.borrowImmutable();
 
@@ -55,7 +56,7 @@ TEST(TestOwner, TestOwner) {
 }
 
 TEST(TestOwner, TestRef) {
-    Object<int> owner{int{10}};
+    Owner<int> owner{int{10}};
 
     auto ref = owner.borrowMutable();
     auto cref = owner.borrowImmutable();

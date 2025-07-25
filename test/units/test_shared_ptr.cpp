@@ -1,13 +1,11 @@
 #include <gtest/gtest.h>
 
 #include "include/memory/smart_pointers/shared_ptr.h"
-#include "include/types/pre-defined_types.h"
 
 namespace {
 
 struct TestAllocator final {
-    std::byte* allocate(atom::types::Size size) { return allocator.allocate(size); }
-    void reallocate(std::byte*& start, atom::types::Size size) { allocator.reallocate(start, size); }
+    std::byte* allocate(std::size_t size) { return allocator.allocate(size); }
     void deallocate(std::byte* start) { allocator.deallocate(start); }
 
     template<typename T, typename ... Arg>
@@ -222,7 +220,7 @@ TEST(TestSharedPtr, TestReinterpretCast) {
 }
 
 TEST(TestSharedPtr, TestCustomAllocator) {
-    atom::utils::owner::Object<TestAllocator> testAllocator;
+    atom::utils::bc::Owner<TestAllocator> testAllocator;
     static auto counter = 0;
     struct Foo {
         Foo() { ++counter; }

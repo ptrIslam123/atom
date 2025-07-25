@@ -1,7 +1,7 @@
 #ifndef ATOM_DEFAULT_ALLOCATOR_H
 #define ATOM_DEFAULT_ALLOCATOR_H
 
-#include "include/types/pre-defined_types.h"
+#include "include/utils/assertion.h"
 
 #include <stdexcept>
 #include <new>
@@ -27,20 +27,7 @@ struct DefaultAllocator final {
      *                    Returns nullptr if allocation fails.
      * @throws std::bad_alloc If the operation fails.
      */
-    std::byte* allocate(types::Size size);
-
-    /**
-     * @brief Reallocates a previously allocated block of memory to a new size.
-     *
-     * @param start A reference to the pointer to the previously allocated memory block.
-     *              This pointer will be updated to point to the reallocated memory.
-     * @param size The new size in bytes for the memory block.
-     *
-     * @throws std::bad_alloc If the operation fails.
-     *
-     * @note If reallocation fails, the original memory block remains unchanged.
-     */
-    void reallocate(std::byte*& start, types::Size size);
+    std::byte* allocate(std::size_t size);
 
     /**
      * @brief Deallocates a previously allocated block of memory.
@@ -84,20 +71,10 @@ struct DefaultAllocator final {
     void destruct(T* object);
 };
 
-inline std::byte* DefaultAllocator::allocate(const types::Size size) {
-    auto ptr = reinterpret_cast<std::byte*>(malloc(size.load()));
-    if (ptr) {
-        return ptr;
-    } else {
-        throw std::bad_alloc{};
-    }
-}
-
-inline void DefaultAllocator::reallocate(std::byte*& start, const types::Size size) {
-    start = static_cast<std::byte*>(realloc(static_cast<std::byte*>(start), size.load()));
-    if (!start) {
-        throw std::bad_alloc{};
-    }
+inline std::byte* DefaultAllocator::allocate(std::size_t size) {
+    auto ptr = reinterpret_cast<std::byte*>(malloc(size));
+    ASSERTION(ptr, std::runtime_error, "Could not allocate memory with size=" + std::to_string(size))
+    return ptr;
 }
 
 inline void DefaultAllocator::deallocate(std::byte* start) {
@@ -106,12 +83,8 @@ inline void DefaultAllocator::deallocate(std::byte* start) {
 
 template<typename T, typename ... Arg>
 inline void DefaultAllocator::construct(T* object, Arg&& ... arg) {
-    if (object) {
-        new(object) T(std::forward<Arg>(arg) ...);
-    } else {
-        throw std::invalid_argument("Object pointer is null");
-    }
-
+    ASSERTION(object, std::runtime_error, "Object pointer is null")
+    new(object) T(std::forward<Arg>(arg) ...);
 }
 
 template<typename T>

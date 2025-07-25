@@ -261,7 +261,7 @@ public:
      * @return SharedPtr owning the newly created object
      */
     template<typename... Arg>
-    static SharedPtr<T, C> Make(utils::owner::Reference<AllocatorType> allocator, Arg&&... arg);
+    static SharedPtr<T, C> Make(utils::bc::Reference<AllocatorType> allocator, Arg&&... arg);
 
     /**
      * @brief Constructs an empty SharedPtr
@@ -540,7 +540,7 @@ SharedPtr<T, C> SharedPtr<T, C>::Make(Arg&&... arg) {
 
 template<typename T, typename C>
 template<typename... Arg>
-SharedPtr<T, C> SharedPtr<T, C>::Make(utils::owner::Reference<AllocatorType> allocator, Arg&&... arg) {
+SharedPtr<T, C> SharedPtr<T, C>::Make(utils::bc::Reference<AllocatorType> allocator, Arg&&... arg) {
     return SharedPtr{C::template Allocate<T, Arg...>(allocator, std::forward<Arg>(arg)...)};
 }
 
@@ -892,7 +892,7 @@ public:
         NonAtomicControlBlock* controlBlock = nullptr;
         T* userData = nullptr;
         try {
-            controlBlockStart = allocator.allocate(types::Size{TOTAL_SIZE});
+            controlBlockStart = allocator.allocate(TOTAL_SIZE);
             controlBlock = reinterpret_cast<NonAtomicControlBlock*>(controlBlockStart);
             userData = reinterpret_cast<T*>(controlBlockStart + sizeof(NonAtomicControlBlock));
 
@@ -916,14 +916,14 @@ public:
     }
 
     template<typename T, typename ... Arg>
-    static NonAtomicControlBlock* Allocate(utils::owner::Reference<AllocatorType> allocator, Arg&& ... arg) {
+    static NonAtomicControlBlock* Allocate(utils::bc::Reference<AllocatorType> allocator, Arg&& ... arg) {
         constexpr auto TOTAL_SIZE = sizeof(NonAtomicControlBlock) + sizeof(T);
         std::byte* controlBlockStart = nullptr;
         NonAtomicControlBlock* controlBlock = nullptr;
         T* userData = nullptr;
         try {
             allocator.accessMutable([&controlBlock, &controlBlockStart, &userData, &arg ...](AllocatorType& _allocator) {
-                std::byte* controlBlockStart = _allocator.allocate(types::Size{TOTAL_SIZE});
+                std::byte* controlBlockStart = _allocator.allocate(TOTAL_SIZE);
                 controlBlock = reinterpret_cast<NonAtomicControlBlock*>(controlBlockStart);
                 auto userData = reinterpret_cast<T*>(controlBlockStart + sizeof(NonAtomicControlBlock));
 
@@ -957,7 +957,7 @@ public:
             allocator.destruct(controlBlock);
             allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock));
         } else {
-            utils::owner::Reference<AllocatorType> allocator{controlBlock->m_allocator};
+            utils::bc::Reference<AllocatorType> allocator{controlBlock->m_allocator};
             ASSERTION(allocator.isValid(), std::runtime_error, "Attempt to use invalid reference to castom allocator")
             allocator.accessMutable([&controlBlock](AllocatorType& _allocator) {
                 _allocator.destruct(controlBlock);
@@ -967,6 +967,14 @@ public:
     }
 
     bool tryAcquireStrongly() noexcept {
+        // template<>
+        // inline bool _Sp_counted_base<_S_single>::_M_add_ref_lock_nothrow() noexcept
+        // {
+        //     if (_M_use_count == 0)
+        //         return false;
+        //     ++_M_use_count;
+        //     return true;
+        // }
         if (m_strongRefCount == 0) {
             return false;
         } else {
@@ -975,6 +983,10 @@ public:
         }
     }
     bool tryAcquireWeakly() noexcept {
+        // template<>
+        // inline void _Sp_counted_base<_S_single>::_M_weak_add_ref() noexcept {
+        //     ++_M_weak_count;
+        // }
         if (weakRefCount() > 0) {
             ++m_weakRefCount;
             return true;
@@ -987,6 +999,16 @@ public:
 
     template<typename T>
     void releaseStrongly() {
+        // template<>
+        // inline void _Sp_counted_base<_S_single>::_M_release() noexcept
+        // {
+        //     if (--_M_use_count == 0)
+        //     {
+        //         _M_dispose();
+        //         if (--_M_weak_count == 0)
+        //             _M_destroy();
+        //     }
+        // }
         --m_strongRefCount;
         if (m_strongRefCount == 0) {
             ++m_weakRefCount;
@@ -999,6 +1021,12 @@ public:
 
     template<typename T>
     void releaseWeakly() {
+        // template<>
+        // inline void _Sp_counted_base<_S_single>::_M_weak_release() noexcept
+        // {
+        //     if (--_M_weak_count == 0)
+        //         _M_destroy();
+        // }
         --m_weakRefCount;
         if (m_weakRefCount == 0 && m_strongRefCount == 0) {
             clearControlBlock<T>();
@@ -1037,7 +1065,7 @@ private:
 
     RefCountType m_strongRefCount{0};
     RefCountType m_weakRefCount{0};
-    utils::owner::Reference<AllocatorType> m_allocator;
+    utils::bc::Reference<AllocatorType> m_allocator;
     // ... user data
 };
 
@@ -1082,7 +1110,7 @@ public:
     }
 
     template<typename T, typename ... Arg>
-    static AtomicControlBlock* Allocate(utils::owner::Reference<AllocatorType> allocator, Arg&& ... arg) {
+    static AtomicControlBlock* Allocate(utils::bc::Reference<AllocatorType> allocator, Arg&& ... arg) {
         constexpr auto TOTAL_SIZE = sizeof(AtomicControlBlock) + sizeof(T);
         std::byte* controlBlockStart = nullptr;
         AtomicControlBlock* controlBlock = nullptr;
@@ -1123,7 +1151,7 @@ public:
             allocator.destruct(controlBlock);
             allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock));
         } else {
-            utils::owner::Reference<AllocatorType> allocator{controlBlock->m_allocator};
+            utils::bc::Reference<AllocatorType> allocator{controlBlock->m_allocator};
             ASSERTION(allocator.isValid(), std::runtime_error, "Attempt to use invalid reference to castom allocator")
             allocator.accessMutable([&controlBlock](AllocatorType& _allocator) {
                 _allocator.destruct(controlBlock);
@@ -1207,7 +1235,7 @@ private:
 
     std::atomic<RefCountType> m_strongRefCount{0};
     std::atomic<RefCountType> m_weakRefCount{0};
-    utils::owner::Reference<AllocatorType> m_allocator;
+    utils::bc::Reference<AllocatorType> m_allocator;
     // ... user data
 };
 

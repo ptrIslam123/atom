@@ -3,6 +3,8 @@
 
 namespace atom::containers {
 
+
+
 } //! namespace atom::containers
 
 #endif //! ATOM_STATIC_ARRAY_H

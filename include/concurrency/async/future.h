@@ -1,176 +1,139 @@
-#ifndef ASYNC_FUTURE_H
-#define ASYNC_FUTURE_H
+#ifndef ATOM_ASYNC_STATIC_FUTURE_H
+#define ATOM_ASYNC_STATIC_FUTURE_H
 
-#include "include/utils/lazy.h"
+#include "include/platform_api/posix_api/futex.h"
+#include "include/memory/allocators/default_allocator.h"
+#include "include/utils/assertion.h"
 
-#include <condition_variable>
-#include <mutex>
-#include <optional>
 #include <chrono>
+#include <atomic>
+#include <array>
+#include <type_traits>
+#include <exception>
+#include <cstdint>
 
-namespace atom::concurrency::async {
+#define STATE_NONE 0
+#define STATE_UNBIND 1
+#define STATE_BIND 2
+#define STATE_IN_PROCESS_SETTING 3
+#define STATE_SET 4
 
-/*
-Пришел к выводу что если хранить shared state не на куче, а взять ownership одному из сущностей(futrue && promise)
-то у нас нету адекватного способа гарнтировать корректность управления памятю(что я имею ввиду):
-Тот кто будет взадеть shared state должен дождаться пока дургая сторона не оповестит о том что дальнейшие попытки обращения к shared state
-ломают инварант механизма управления памятю. Если этот кейс acceptable, то окей. В таком случае надо рассмотреть возмождность
-поддержания механизма пулинга futures(по аналогии с rust tokio) иначе подобный механизм мало применим.
-Одно из потенциально оч продуктиных использовании подобных local::Future<T> есть комбинация с io::Poll.
-Я могу сделать такой механизм:
-
-void io::sheduler::SheduleReading
-(
-    utils::LazyConstructed<async::local::Future<BufferType>>& future,
-    const SocketType socket,
-    const async::ThreadPoll::IdType id
-) {
-    global::Manager::GetInstance()->getIOPoll().onReadEvent(socket, [&future, id](const SocketType socket) {
-        global::Manager::GetInstance()->GetThreadPoll(id).pushTask(future, [socket](async::local::Promise<BufferType>& promise) {
-            // read from native socket
-            BufferType buffer;
-            const auto readBytes = utils::net::low_level::Read(socket, std::span<BufferType::ValueType>{ buffer.data(), buffer.size() });
-            if (readBytes == 0) {
-                global::Manager::GetInsatnce()->getIOPoll().removeCallback(socket);
-            } else {
-                promise.setResult(std::move(buffer));
-            }
-        });
-    }, [&future, id](const SocketType socket) {
-        (void)global::Manager::GetInstance()->GetThreadPoll(id).cancelTask(future));
-        switch (future.waitFoCancelation()) {
-            case async::local::Future<BufferType>::State::Ready:
-            case async::local::Future<BufferType>::State::Canceled: {
-                break;
-            }
-            default: PANIC("Bad future")
-        }
-        utils::net::low_level::CloseSocket(socket);
-    });
-}
-
-void io::sheduler::CancelReading
-(
-    utils::LazyConstructed<async::local::Future<BufferType>>& future,
-    const SocketType socket,
-    const async::ThreadPoll::IdType id
-) {
-
-}
-
-Usage:
-
-const SocketType socket = ...;
-
-utils::LazyConstructed<async::local::Future<BufferType>> futureRequestBuffer;
-io::sheduler::SheduleReading(futureRequestBuffer, socket, async::ThreadPool::IO);
-assert(futureRequestBuffer.wasConstructed());
-
-///
-1) you can wait completing of read operation:
-if (futureRequestBuffer->wait() == async::local::Future<BufferType>::Ready) {
-    const auto requestBuffer = futureRequestBuffer->getResult();
-    assert(requestBuffer.has_value());
-
-    processRequest(std::move(requetsBuffer));
-    futureRequestBuffer.destroy();
-}
-
-2) you can wait completing for timeout
-if (futureRequestBuffer->waitFor(timeout) == async::local::Future<BufferType>::Ready) {
-    const auto requestBuffer = futureRequestBuffer->getResult();
-    assert(requestBuffer.has_value());
-
-    processRequest(std::move(requetsBuffer));
-    futureRequestBuffer.destroy();
-} else {
-    io::sheduler::CancelReading(futureRequestBuffer, socket, async::ThreadPool::IO);
-}
-
-*/
+namespace atom::async {
 
 template<typename T>
 class Future;
-
+template<typename T>
+class DynamicFuture;
 template<typename T>
 class Promise;
 
 template<typename T>
-void Bind(utils::LazyConstructed<Future<T>>& future, utils::LazyConstructed<Promise<T>>& promise);
-
+void Bind(Future<T>& f, Promise<T>& p);
 template<typename T>
-class Future final {
-public:
-    enum class Status {
-        Ready,
-        TimeoutExpired,
-        Canceled,
-    };
-
-    std::optional<T> getResult();
-    void waitForCancellation();
-    template<typename Rep, typename Period>
-    Status waitFor(const std::chrono::duration<Rep,Period>& timeout);
-    Status wait();
-
-private:
-    friend void Bind(utils::LazyConstructed<Future<T>>& future, utils::LazyConstructed<Promise<T>>& promise);
-    explicit Future();
-
-    enum class State {
-        WaitResult,
-        Completed,
-        RequestCancelation,
-        Canceled,
-    };
-};
+void Unbind(Future<T>& f, Promise<T>& p);
 
 template<typename T>
 class Promise final {
 public:
-    Promise(const Promise& ) = delete;
-    Promise& operator=(const Promise& ) = delete;
+    explicit Promise() = default;
+    Promise(const Promise& other) noexcept = default;
+    Promise(Promise&& other) noexcept = default;
+    Promise& operator=(const Promise& other) noexcept = default;
+    Promise& operator=(Promise&& other) noexcept = default;
+    ~Promise() {
 
-    Promise(Promise&& other) noexcept;
-    Promise& operator=(Promise&& other) noexcept;
+    }
 
-    void setResult(T&& value);
-    void setResult(const T& value);
-    bool wasCanceled();
+    template<typename R>
+    void set(R&& value) {
+
+    }
+
+    template<typename ... Arg>
+    void emplace(Arg&& ... arg) {
+
+    }
+
+    bool isCanceled() const noexcept {
+
+    }
 
 private:
-    friend void Bind(utils::LazyConstructed<Future<T>>& future, utils::LazyConstructed<Promise<T>>& promise);
+    friend void Bind<T>(Future<T>&, Promise<T>&);
+    friend void Unbind<T>(Future<T>&, Promise<T>&);
+
+    std::atomic<bool> m_isCanceled{false};
+    std::atomic<std::uint32_t>* m_state{nullptr};
+    std::span<std::byte> m_storage{};
 };
 
 template<typename T>
-Future<T>::Future()
-{}
+class Future final {
+public:
+    explicit Future() = default;
+    Future(const Future& other) noexcept = delete;
+    Future(Future&& other) noexcept = delete;
+    Future& operator=(const Future& other) noexcept = delete;
+    Future& operator=(Future&& other) noexcept = delete;
+    ~Future() {
+
+    }
+
+    template<typename Rep, typename Period>
+    bool waitFor(const std::chrono::duration<Rep, Period>& timeout) {
+
+    }
+
+
+    template<typename Rep, typename Period>
+    bool waitUntil(const std::chrono::duration<Rep, Period>& timeout) {
+
+    }
+
+    void wait() {
+
+    }
+
+    void cancel() {
+
+    }
+
+    bool isReady() const noexcept {
+
+    }
+
+    T& get() {
+        ASSERTION(isReady(), std::runtime_error, "Attept to get is not ready value yet")
+        return *reinterpret_cast<T*>(m_data.data());
+    }
+
+    const T& get() const {
+        ASSERTION(isReady(), std::runtime_error, "Attept to get is not ready value yet")
+        return *reinterpret_cast<const T*>(m_data.data());
+    }
+
+private:
+    friend void Bind<T>(Future<T>&, Promise<T>&);
+    friend void Unbind<T>(Future<T>&, Promise<T>&);
+
+    std::atomic<bool>* m_isCanceled{nullptr};
+    std::atomic<std::uint32_t> m_state;
+    std::array<std::byte, sizeof(T)> m_data;
+};
 
 template<typename T>
-std::optional<T> Future<T>::getResult()
-{
+void Bind(Future<T>& f, Promise<T>& p) {
+    f.m_isCanceled = &p.m_isCanceled;
 
+    p.m_state = &f.m_state;
+    p.m_storage = f.m_data;
 }
 
 template<typename T>
-void Future<T>::waitForCancellation()
-{}
-
-template<typename T>
-template<typename Rep, typename Period>
-typename Future<T>::Status Future<T>::waitFor(const std::chrono::duration<Rep,Period>& timeout)
-{}
-
-template<typename T>
-typename Future<T>::Status Future<T>::wait()
-{}
-
-
-template<typename T>
-void Bind(utils::LazyConstructed<Future<T>>& future, utils::LazyConstructed<Promise<T>>& promise) {
+void Unbind(Future<T>& f, Promise<T>& p) {
 
 }
 
-} //! namespace atom::concurrency::async
+} //! namespace atom::async
 
-#endif //! ASYNC_FUTURE_H
+#endif //! ATOM_ASYNC_STATIC_FUTURE_H

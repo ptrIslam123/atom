@@ -8,6 +8,7 @@
 #include <chrono>
 #include <atomic>
 #include <array>
+#include <span>
 #include <type_traits>
 #include <exception>
 #include <cstdint>

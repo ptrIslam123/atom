@@ -11,13 +11,7 @@ int GetLastErrorCode() {
 }
 
 std::string GetLastSysErrorMessage() {
-    std::array<char, 256> buffer = {0};
-    // Using the XSI-compliant version of strerror_r
-    if (strerror_r(GetLastErrorCode()), buffer.data(), buffer.size()) {
-        // If strerror_r fails, return a generic message
-        return "Unknown error (" + std::to_string(GetLastErrorCode()) + ")";
-    }
-    return std::string(buffer.data());
+    return std::string{strerror(GetLastErrorCode())};
 }
 
 } //! namespace atom::platform::posix

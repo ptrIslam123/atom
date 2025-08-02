@@ -13,7 +13,7 @@
 
 namespace {
 
-int FutexSysCall(std::uint32_t* uaddr, int futex_op, std::uint32_t val, const struct timespec* timeout) {
+int FutexSysCall(std::uint32_t* uaddr, int futex_op, std::uint32_t val, const struct timespec* timeout = nullptr) {
     return syscall(SYS_futex, reinterpret_cast<void*>(uaddr), futex_op, val, timeout, nullptr, 0);
 }
 

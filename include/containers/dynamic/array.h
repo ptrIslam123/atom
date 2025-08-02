@@ -1204,6 +1204,7 @@ typename DynamicArray<T, A, G>::Iterator DynamicArray<T, A, G>::erase(ConstItera
 
 template<typename T, typename A, typename G>
 inline void DynamicArray<T, A, G>::clear() {
+    //! if (!isEmpty()) TODO
     destructElements(
         iteratorToIndex(firstConstIter()),
         iteratorToIndex(endConstIter())

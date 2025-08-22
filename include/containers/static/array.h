@@ -46,29 +46,35 @@ public:
             ASSERTION(!isExpired() && !isOutOfRange(), std::runtime_error, "Dereferencing invalid iterator")
             return *m_ptr;
         }
-        ConstPointerType operator->() const noexcept { return m_ptr; }
-        PointerType operator->() noexcept { return m_ptr; }
+        ConstPointerType operator->() const {
+            ASSERTION(!isExpired() && !isOutOfRange(), std::runtime_error, "Dereferencing invalid iterator")
+            return m_ptr;
+        }
+        PointerType operator->() {
+            ASSERTION(!isExpired() && !isOutOfRange(), std::runtime_error, "Dereferencing invalid iterator")
+            return m_ptr;
+        }
 
-        Iterator& operator++() noexcept { ++m_ptr; return *this; }
-        Iterator operator++(int) noexcept { Iterator tmp = *this; ++m_ptr; return tmp; }
-        Iterator& operator--() noexcept { --m_ptr; return *this; }
-        Iterator operator--(int) noexcept { Iterator tmp = *this; --m_ptr; return tmp; }
+        FORCE_INLINE Iterator& operator++() noexcept { ++m_ptr; return *this; }
+        FORCE_INLINE Iterator operator++(int) noexcept { Iterator tmp = *this; ++m_ptr; return tmp; }
+        FORCE_INLINE Iterator& operator--() noexcept { --m_ptr; return *this; }
+        FORCE_INLINE Iterator operator--(int) noexcept { Iterator tmp = *this; --m_ptr; return tmp; }
 
-        Iterator operator+(int n) const noexcept { return Iterator{m_ptr + n, m_array, m_version}; }
-        Iterator operator-(int n) const noexcept { return Iterator{m_ptr - n, m_array, m_version}; }
-        Iterator operator+=(int n) noexcept { m_ptr += n; return *this; }
-        Iterator operator-=(int n) noexcept { m_ptr -= n; return *this; }
-        difference_type operator-(const Iterator& other) const noexcept { return m_ptr - other.m_ptr; }
+        FORCE_INLINE Iterator operator+(int n) const noexcept { return Iterator{m_ptr + n, m_array, m_version}; }
+        FORCE_INLINE Iterator operator-(int n) const noexcept { return Iterator{m_ptr - n, m_array, m_version}; }
+        FORCE_INLINE Iterator operator+=(int n) noexcept { m_ptr += n; return *this; }
+        FORCE_INLINE Iterator operator-=(int n) noexcept { m_ptr -= n; return *this; }
+        FORCE_INLINE difference_type operator-(const Iterator& other) const noexcept { return m_ptr - other.m_ptr; }
 
-        bool operator==(const Iterator& other) const noexcept { return m_ptr == other.m_ptr; }
-        bool operator!=(const Iterator& other) const noexcept { return m_ptr != other.m_ptr; }
-        bool operator<(const Iterator& other) const noexcept { return m_ptr < other.m_ptr; }
-        bool operator>(const Iterator& other) const noexcept { return m_ptr > other.m_ptr; }
-        bool operator<=(const Iterator& other) const noexcept { return m_ptr <= other.m_ptr; }
-        bool operator>=(const Iterator& other) const noexcept { return m_ptr >= other.m_ptr; }
+        FORCE_INLINE bool operator==(const Iterator& other) const noexcept { return m_ptr == other.m_ptr; }
+        FORCE_INLINE bool operator!=(const Iterator& other) const noexcept { return m_ptr != other.m_ptr; }
+        FORCE_INLINE bool operator<(const Iterator& other) const noexcept { return m_ptr < other.m_ptr; }
+        FORCE_INLINE bool operator>(const Iterator& other) const noexcept { return m_ptr > other.m_ptr; }
+        FORCE_INLINE bool operator<=(const Iterator& other) const noexcept { return m_ptr <= other.m_ptr; }
+        FORCE_INLINE bool operator>=(const Iterator& other) const noexcept { return m_ptr >= other.m_ptr; }
 
-        bool isExpired() const noexcept { return m_version != m_array->m_version; }
-        bool isOutOfRange() const noexcept { return m_ptr >= m_array->endIter().m_ptr; }
+        FORCE_INLINE bool isExpired() const noexcept { return m_version != m_array->m_version; }
+        FORCE_INLINE bool isOutOfRange() const noexcept { return m_ptr >= m_array->endIter().m_ptr; }
 
     private:
         friend StaticArray;
@@ -79,7 +85,7 @@ public:
         m_version(version)
         {}
 
-        void copy(const Iterator& other) noexcept {
+        FORCE_INLINE void copy(const Iterator& other) noexcept {
             std::memcpy(this, &other, sizeof(other));
         }
 
@@ -106,27 +112,30 @@ public:
             ASSERTION(!isExpired() && !isOutOfRange(), std::runtime_error, "Dereferencing invalid const iterator")
             return *m_ptr;
         }
-        ConstPointerType operator->() const { return m_ptr; }
-        ConstIterator& operator++() noexcept { ++m_ptr; return *this; }
-        ConstIterator operator++(int) noexcept { ConstIterator tmp = *this; ++m_ptr; return tmp; }
-        ConstIterator& operator--() noexcept { --m_ptr; return *this; }
-        ConstIterator operator--(int) noexcept { ConstIterator tmp = *this; --m_ptr; return tmp; }
+        ConstPointerType operator->() const {
+            ASSERTION(!isExpired() && !isOutOfRange(), std::runtime_error, "Dereferencing invalid const iterator")
+            return m_ptr;
+        }
+        FORCE_INLINE ConstIterator& operator++() noexcept { ++m_ptr; return *this; }
+        FORCE_INLINE ConstIterator operator++(int) noexcept { ConstIterator tmp = *this; ++m_ptr; return tmp; }
+        FORCE_INLINE ConstIterator& operator--() noexcept { --m_ptr; return *this; }
+        FORCE_INLINE ConstIterator operator--(int) noexcept { ConstIterator tmp = *this; --m_ptr; return tmp; }
 
-        ConstIterator operator+(int n) const noexcept { return ConstIterator{m_ptr + n, m_array, m_version}; }
-        ConstIterator operator-(int n) const noexcept { return ConstIterator{m_ptr - n, m_array, m_version}; }
-        ConstIterator& operator+=(int n) noexcept { m_ptr += n; return *this; }
-        ConstIterator& operator-=(int n) noexcept { m_ptr -= n; return *this; }
-        difference_type operator-(const Iterator& other) const noexcept { return m_ptr - other.m_ptr; }
+        FORCE_INLINE ConstIterator operator+(int n) const noexcept { return ConstIterator{m_ptr + n, m_array, m_version}; }
+        FORCE_INLINE ConstIterator operator-(int n) const noexcept { return ConstIterator{m_ptr - n, m_array, m_version}; }
+        FORCE_INLINE ConstIterator& operator+=(int n) noexcept { m_ptr += n; return *this; }
+        FORCE_INLINE ConstIterator& operator-=(int n) noexcept { m_ptr -= n; return *this; }
+        FORCE_INLINE difference_type operator-(const Iterator& other) const noexcept { return m_ptr - other.m_ptr; }
 
-        bool operator==(const ConstIterator& other) const noexcept { return m_ptr == other.m_ptr; }
-        bool operator!=(const ConstIterator& other) const noexcept { return m_ptr != other.m_ptr; }
-        bool operator<(const ConstIterator& other) const noexcept { return m_ptr < other.m_ptr; }
-        bool operator>(const ConstIterator& other) const noexcept { return m_ptr > other.m_ptr; }
-        bool operator<=(const ConstIterator& other) const noexcept { return m_ptr <= other.m_ptr; }
-        bool operator>=(const ConstIterator& other) const noexcept { return m_ptr >= other.m_ptr; }
+        FORCE_INLINE bool operator==(const ConstIterator& other) const noexcept { return m_ptr == other.m_ptr; }
+        FORCE_INLINE bool operator!=(const ConstIterator& other) const noexcept { return m_ptr != other.m_ptr; }
+        FORCE_INLINE bool operator<(const ConstIterator& other) const noexcept { return m_ptr < other.m_ptr; }
+        FORCE_INLINE bool operator>(const ConstIterator& other) const noexcept { return m_ptr > other.m_ptr; }
+        FORCE_INLINE bool operator<=(const ConstIterator& other) const noexcept { return m_ptr <= other.m_ptr; }
+        FORCE_INLINE bool operator>=(const ConstIterator& other) const noexcept { return m_ptr >= other.m_ptr; }
 
-        bool isExpired() const noexcept { return m_version != m_array->m_version; }
-        bool isOutOfRange() const noexcept { return m_ptr >= m_array->endIter().m_ptr; }
+        FORCE_INLINE bool isExpired() const noexcept { return m_version != m_array->m_version; }
+        FORCE_INLINE bool isOutOfRange() const noexcept { return m_ptr >= m_array->endIter().m_ptr; }
 
     private:
         friend StaticArray;
@@ -137,7 +146,7 @@ public:
         m_version(version)
         {}
 
-        void copy(const ConstIterator& other) noexcept {
+        FORCE_INLINE void copy(const ConstIterator& other) noexcept {
             std::memcpy(this, &other, sizeof(other));
         }
 
@@ -155,6 +164,13 @@ public:
         ReverseIterator& operator=(const ReverseIterator& other) noexcept { copy(other); return *this; }
         ReverseIterator& operator=(ReverseIterator&& other) noexcept { copy(other); return *this; }
 
+        Iterator reverse() const noexcept {
+            auto start = m_array->data();
+            auto end = start + m_array->size();
+            auto ptr = end - m_ptr + start;
+            return Iterator{ptr, m_array, m_version};
+        }
+
         ReferenceType operator*() {
             ASSERTION(!isExpired() && !isOutOfRange(), std::runtime_error, "Dereferencing invalid reverse iterator")
             return *m_ptr;
@@ -163,29 +179,35 @@ public:
             ASSERTION(!isExpired() && !isOutOfRange(), std::runtime_error, "Dereferencing invalid reverse iterator")
             return *m_ptr;
         }
-        PointerType operator->() noexcept { return m_ptr; }
-        ConstPointerType operator->() const noexcept { return m_ptr; }
+        PointerType operator->() {
+            ASSERTION(!isExpired() && !isOutOfRange(), std::runtime_error, "Dereferencing invalid reverse iterator")
+            return m_ptr;
+        }
+        ConstPointerType operator->() const {
+            ASSERTION(!isExpired() && !isOutOfRange(), std::runtime_error, "Dereferencing invalid reverse iterator")
+            return m_ptr;
+        }
 
-        ReverseIterator& operator++() noexcept { --m_ptr; return *this; }
-        ReverseIterator operator++(int) noexcept { ReverseIterator tmp = *this; --m_ptr; return tmp; }
-        ReverseIterator& operator--() noexcept { ++m_ptr; return *this; }
-        ReverseIterator operator--(int) noexcept { ReverseIterator tmp = *this; ++m_ptr; return tmp; }
+        FORCE_INLINE ReverseIterator& operator++() noexcept { --m_ptr; return *this; }
+        FORCE_INLINE ReverseIterator operator++(int) noexcept { ReverseIterator tmp = *this; --m_ptr; return tmp; }
+        FORCE_INLINE ReverseIterator& operator--() noexcept { ++m_ptr; return *this; }
+        FORCE_INLINE ReverseIterator operator--(int) noexcept { ReverseIterator tmp = *this; ++m_ptr; return tmp; }
 
-        ReverseIterator operator+(int n) const noexcept { return ReverseIterator{m_ptr - n, m_array, m_version}; }
-        ReverseIterator operator-(int n) const noexcept { return ReverseIterator{m_ptr + n, m_array, m_version}; }
-        ReverseIterator& operator+=(int n) noexcept { m_ptr -= n; return *this; }
-        ReverseIterator& operator-=(int n) noexcept { m_ptr += n; return *this; }
-        difference_type operator-(const ReverseIterator& other) const noexcept { return other.m_ptr - m_ptr; }
+        FORCE_INLINE ReverseIterator operator+(int n) const noexcept { return ReverseIterator{m_ptr - n, m_array, m_version}; }
+        FORCE_INLINE ReverseIterator operator-(int n) const noexcept { return ReverseIterator{m_ptr + n, m_array, m_version}; }
+        FORCE_INLINE ReverseIterator& operator+=(int n) noexcept { m_ptr -= n; return *this; }
+        FORCE_INLINE ReverseIterator& operator-=(int n) noexcept { m_ptr += n; return *this; }
+        FORCE_INLINE difference_type operator-(const ReverseIterator& other) const noexcept { return other.m_ptr - m_ptr; }
 
-        bool operator==(const ReverseIterator& other) const noexcept { return m_ptr == other.m_ptr; }
-        bool operator!=(const ReverseIterator& other) const noexcept { return m_ptr != other.m_ptr; }
-        bool operator<(const ReverseIterator& other) const noexcept { return m_ptr > other.m_ptr; }
-        bool operator>(const ReverseIterator& other) const noexcept { return m_ptr < other.m_ptr; }
-        bool operator<=(const ReverseIterator& other) const noexcept { return m_ptr >= other.m_ptr; }
-        bool operator>=(const ReverseIterator& other) const noexcept { return m_ptr <= other.m_ptr; }
+        FORCE_INLINE bool operator==(const ReverseIterator& other) const noexcept { return m_ptr == other.m_ptr; }
+        FORCE_INLINE bool operator!=(const ReverseIterator& other) const noexcept { return m_ptr != other.m_ptr; }
+        FORCE_INLINE bool operator<(const ReverseIterator& other) const noexcept { return m_ptr > other.m_ptr; }
+        FORCE_INLINE bool operator>(const ReverseIterator& other) const noexcept { return m_ptr < other.m_ptr; }
+        FORCE_INLINE bool operator<=(const ReverseIterator& other) const noexcept { return m_ptr >= other.m_ptr; }
+        FORCE_INLINE bool operator>=(const ReverseIterator& other) const noexcept { return m_ptr <= other.m_ptr; }
 
-        bool isExpired() const noexcept { return m_version != m_array->m_version; }
-        bool isOutOfRange() const noexcept { return m_ptr < m_array->firstIter().m_ptr; }
+        FORCE_INLINE bool isExpired() const noexcept { return m_version != m_array->m_version; }
+        FORCE_INLINE bool isOutOfRange() const noexcept { return m_ptr < m_array->firstIter().m_ptr; }
 
     private:
         friend StaticArray;
@@ -196,7 +218,7 @@ public:
         m_version(version)
         {}
 
-        void copy(const ReverseIterator& other) noexcept {
+        FORCE_INLINE void copy(const ReverseIterator& other) noexcept {
             std::memcpy(this, &other, sizeof(other));
         }
 
@@ -214,32 +236,42 @@ public:
         ReverseConstIterator& operator=(const ReverseConstIterator& other) noexcept { copy(other); return *this; }
         ReverseConstIterator& operator=(ReverseConstIterator&& other) noexcept { copy(other); return *this; }
 
+        ConstIterator reverse() const noexcept {
+            auto start = m_array->firstConstIter().m_ptr;
+            auto end = m_array->lastConstIter().m_ptr;
+            auto ptr = end - m_ptr + start;
+            return ConstIterator{ptr, m_array, m_version};
+        }
+
         ConstReferenceType operator*() const {
             ASSERTION(!isExpired() && !isOutOfRange(), std::runtime_error, "Dereferencing invalid reverse const iterator")
             return *m_ptr;
         }
-        ConstPointerType operator->() const noexcept { return m_ptr; }
+        ConstPointerType operator->() const {
+            ASSERTION(!isExpired() && !isOutOfRange(), std::runtime_error, "Dereferencing invalid reverse const iterator")
+            return m_ptr;
+        }
 
-        ReverseConstIterator& operator++() noexcept { --m_ptr; return *this; }
-        ReverseConstIterator operator++(int) noexcept { ReverseConstIterator tmp = *this; --m_ptr; return tmp; }
-        ReverseConstIterator& operator--() noexcept { ++m_ptr; return *this; }
-        ReverseConstIterator operator--(int) noexcept { ReverseConstIterator tmp = *this; ++m_ptr; return tmp; }
+        FORCE_INLINE ReverseConstIterator& operator++() noexcept { --m_ptr; return *this; }
+        FORCE_INLINE ReverseConstIterator operator++(int) noexcept { ReverseConstIterator tmp = *this; --m_ptr; return tmp; }
+        FORCE_INLINE ReverseConstIterator& operator--() noexcept { ++m_ptr; return *this; }
+        FORCE_INLINE ReverseConstIterator operator--(int) noexcept { ReverseConstIterator tmp = *this; ++m_ptr; return tmp; }
 
-        ReverseConstIterator operator+(int n) const noexcept { return ReverseConstIterator{m_ptr - n, m_array, m_version}; }
-        ReverseConstIterator operator-(int n) const noexcept { return ReverseConstIterator{m_ptr + n, m_array, m_version}; }
-        ReverseConstIterator& operator+=(int n) noexcept { m_ptr -= n; return *this; }
-        ReverseConstIterator& operator-=(int n) noexcept { m_ptr += n; return *this; }
-        difference_type operator-(const ReverseConstIterator& other) const noexcept { return other.m_ptr - m_ptr; }
+        FORCE_INLINE ReverseConstIterator operator+(int n) const noexcept { return ReverseConstIterator{m_ptr - n, m_array, m_version}; }
+        FORCE_INLINE ReverseConstIterator operator-(int n) const noexcept { return ReverseConstIterator{m_ptr + n, m_array, m_version}; }
+        FORCE_INLINE ReverseConstIterator& operator+=(int n) noexcept { m_ptr -= n; return *this; }
+        FORCE_INLINE ReverseConstIterator& operator-=(int n) noexcept { m_ptr += n; return *this; }
+        FORCE_INLINE difference_type operator-(const ReverseConstIterator& other) const noexcept { return other.m_ptr - m_ptr; }
 
-        bool operator==(const ReverseConstIterator& other) const noexcept { return m_ptr == other.m_ptr; }
-        bool operator!=(const ReverseConstIterator& other) const noexcept { return m_ptr != other.m_ptr; }
-        bool operator<(const ReverseConstIterator& other) const noexcept { return m_ptr > other.m_ptr; }
-        bool operator>(const ReverseConstIterator& other) const noexcept { return m_ptr < other.m_ptr; }
-        bool operator<=(const ReverseConstIterator& other) const noexcept { return m_ptr >= other.m_ptr; }
-        bool operator>=(const ReverseConstIterator& other) const noexcept { return m_ptr <= other.m_ptr; }
+        FORCE_INLINE bool operator==(const ReverseConstIterator& other) const noexcept { return m_ptr == other.m_ptr; }
+        FORCE_INLINE bool operator!=(const ReverseConstIterator& other) const noexcept { return m_ptr != other.m_ptr; }
+        FORCE_INLINE bool operator<(const ReverseConstIterator& other) const noexcept { return m_ptr > other.m_ptr; }
+        FORCE_INLINE bool operator>(const ReverseConstIterator& other) const noexcept { return m_ptr < other.m_ptr; }
+        FORCE_INLINE bool operator<=(const ReverseConstIterator& other) const noexcept { return m_ptr >= other.m_ptr; }
+        FORCE_INLINE bool operator>=(const ReverseConstIterator& other) const noexcept { return m_ptr <= other.m_ptr; }
 
-        bool isExpired() const noexcept { return m_version != m_array->m_version; }
-        bool isOutOfRange() const noexcept { return m_ptr < m_array->beginIter().m_ptr; }
+        FORCE_INLINE bool isExpired() const noexcept { return m_version != m_array->m_version; }
+        FORCE_INLINE bool isOutOfRange() const noexcept { return m_ptr < m_array->firstConstIter().m_ptr; }
 
     private:
         friend StaticArray;
@@ -250,7 +282,7 @@ public:
         m_version(version)
         {}
 
-        void copy(const ReverseConstIterator& other) noexcept {
+        FORCE_INLINE void copy(const ReverseConstIterator& other) noexcept {
             std::memcpy(this, &other, sizeof(other));
         }
 
@@ -271,7 +303,7 @@ public:
     }
     ~StaticArray() { clear(); }
 
-    void pushBack(std::initializer_list<const T> data) {
+    FORCE_INLINE void pushBack(std::initializer_list<const T> data) {
         pushBack(std::span<const T>{data});
     }
 
@@ -328,7 +360,7 @@ public:
         }
         return indexToIter(start);
     }
-    Iterator insert(ConstIterator pos, std::initializer_list<const T> data) {
+    FORCE_INLINE Iterator insert(ConstIterator pos, std::initializer_list<const T> data) {
         return insert(pos, std::span<const T>{data});
     }
     Iterator insert(ConstIterator pos, std::span<const T> data) {
@@ -346,7 +378,7 @@ public:
         destruct(indexToPtr(size() - 1));
         --m_size;
     }
-    Iterator erase(ConstIterator pos) {
+    FORCE_INLINE Iterator erase(ConstIterator pos) {
         return erase(pos, pos + 1);
     }
     Iterator erase(ConstIterator first, ConstIterator last) {
@@ -373,13 +405,13 @@ public:
         }
     }
     void clear() noexcept(std::is_nothrow_destructible_v<T>) {
-        if (!isEmpty()) {
+        if LIKELY_EXPR(!isEmpty()) {
             destructElements(0, size());
         }
     }
 
-    ConstReferenceType atUnsafe(SizeType index) const noexcept { return *(data() + index); }
-    ReferenceType atUnsafe(SizeType index) noexcept { return *(data() + index); }
+    FORCE_INLINE ConstReferenceType atUnsafe(SizeType index) const noexcept { return *(data() + index); }
+    FORCE_INLINE ReferenceType atUnsafe(SizeType index) noexcept { return *(data() + index); }
     ConstReferenceType operator[](SizeType index) const {
         ASSERTION(index < size(), std::runtime_error, "Out of range")
         return atUnsafe(index);
@@ -390,31 +422,32 @@ public:
     }
 
     ConstReferenceType firstElement() const {
-        ASSERTION(!isEmpty(), std::runtime_error, "static array is empty")
+        ASSERTION(!isEmpty(), std::runtime_error, "Static array is empty")
         return *firstConstIter();
     }
     ReferenceType firstElement() {
-        ASSERTION(!isEmpty(), std::runtime_error, "static array is empty")
+        ASSERTION(!isEmpty(), std::runtime_error, "Static array is empty")
         return *firstIter();
     }
     ConstReferenceType lastElement() const {
-        ASSERTION(!isEmpty(), std::runtime_error, "static array is empty")
+        ASSERTION(!isEmpty(), std::runtime_error, "Static array is empty")
         return *lastConstIter();
     }
     ReferenceType lastElement() {
-        ASSERTION(!isEmpty(), std::runtime_error, "static array is empty")
+        ASSERTION(!isEmpty(), std::runtime_error, "Static array is empty")
         return *lastIter();
     }
 
-    Iterator firstIter() { return Iterator{data(), this, m_version}; }
-    Iterator lastIter() {
+    Iterator firstIter() noexcept { return Iterator{data(), this, m_version}; }
+    Iterator lastIter() noexcept {
         if LIKELY_EXPR(size() > 1) {
             return Iterator{data() + size() - 1, this, m_version};
         } else {
             return firstIter();
         }
     }
-    Iterator endIter() const noexcept { return Iterator{const_cast<PointerType>(data()) + size(), this, m_version}; }
+    Iterator endIter() noexcept { return Iterator{data() + size(), this, m_version}; }
+
     ConstIterator firstConstIter() const noexcept { return ConstIterator{const_cast<PointerType>(data()), this, m_version}; }
     ConstIterator lastConstIter() const noexcept {
         if LIKELY_EXPR(size() > 1) {
@@ -425,48 +458,64 @@ public:
     }
     ConstIterator endConstIter() const noexcept { return ConstIterator{const_cast<PointerType>(data()) + size(), this, m_version}; }
 
-    ReverseIterator firstReverseIter() const noexcept {
+    ReverseIterator firstReverseIter() noexcept {
         if LIKELY_EXPR(size() > 0) {
-            return ReverseIterator{const_cast<PointerType>(data() + size() - 1), this, m_version};
+            return ReverseIterator{data() + size() - 1, this, m_version};
         } else {
             return endReverseIter();
         }
     }
-    ReverseIterator lastReverseIter() const noexcept { return ReverseIterator{const_cast<PointerType>(data()), this, m_version};  }
-    ReverseIterator endReverseIter() const noexcept { return ReverseIterator{const_cast<PointerType>(data()), this, m_version}; }
+    ReverseIterator lastReverseIter() noexcept {
+        if LIKELY_EXPR(size() > 0) {
+            return ReverseIterator{data(), this, m_version};
+        } else {
+            return endReverseIter();
+        }
+    }
+    ReverseIterator endReverseIter() noexcept { return ReverseIterator{data() - 1, this, m_version}; }
 
     ReverseConstIterator firstReverseConstIter() const noexcept {
         if LIKELY_EXPR(size() > 0) {
-            return ReverseConstIterator{const_cast<PointerType>(data() + size() - 1), this, m_version};
+            return ReverseConstIterator{const_cast<PointerType>(data()) + size() - 1, this, m_version};
         } else {
             return endReverseConstIter();
         }
     }
-    ReverseConstIterator lastReverseConstIter() const noexcept { return ReverseConstIterator{const_cast<PointerType>(data()), this, m_version};  }
-    ReverseConstIterator endReverseConstIter() const noexcept { return ReverseConstIterator{const_cast<PointerType>(data()), this, m_version}; }
+    ReverseConstIterator lastReverseConstIter() const noexcept {
+        if LIKELY_EXPR(size() > 0) {
+            return ReverseConstIterator{const_cast<PointerType>(data()), this, m_version};
+        } else {
+            return endReverseConstIter();
+        }
+    }
+    ReverseConstIterator endReverseConstIter() const noexcept { return ReverseConstIterator{const_cast<PointerType>(data()) - 1, this, m_version}; }
 
-    constexpr SizeType size() const noexcept {
+    FORCE_INLINE constexpr SizeType size() const noexcept {
         return m_size;
     }
 
-    constexpr CapacityType capacity() const noexcept {
+    FORCE_INLINE constexpr CapacityType capacity() const noexcept {
         return N;
     }
 
-    constexpr bool isEmpty() const noexcept {
+    FORCE_INLINE constexpr bool isEmpty() const noexcept {
         return (size() == 0);
     }
 
-    ConstPointerType data() const noexcept { return reinterpret_cast<ConstPointerType>(m_data); }
-    PointerType data() noexcept { return reinterpret_cast<PointerType>(m_data); }
+    FORCE_INLINE constexpr bool isFull() const noexcept {
+        return size() >= capacity();
+    }
+
+    FORCE_INLINE ConstPointerType data() const noexcept { return reinterpret_cast<ConstPointerType>(m_data); }
+    FORCE_INLINE PointerType data() noexcept { return reinterpret_cast<PointerType>(m_data); }
 
 private:
     template<typename ... Arg>
-    void construct(PointerType ptr, Arg&& ... arg) noexcept(std::is_nothrow_constructible_v<T>) {
+    FORCE_INLINE void construct(PointerType ptr, Arg&& ... arg) noexcept(std::is_nothrow_constructible_v<T>) {
         new(ptr) T{std::forward<Arg>(arg) ... };
     }
 
-    void destruct(PointerType ptr) noexcept(std::is_nothrow_destructible_v<T>) {
+    FORCE_INLINE void destruct(PointerType ptr) noexcept(std::is_nothrow_destructible_v<T>) {
         ptr->~T();
     }
 
@@ -479,15 +528,15 @@ private:
         m_size -= lastIndex - firstIndex;
     }
 
-    SizeType iterToIndex(ConstIterator it) {
+    FORCE_INLINE SizeType iterToIndex(ConstIterator it) {
         return static_cast<SizeType>(it.m_ptr - data());
     }
 
-    PointerType indexToPtr(SizeType index) {
+    FORCE_INLINE PointerType indexToPtr(SizeType index) {
         return data() + index;
     }
 
-    Iterator indexToIter(SizeType index) {
+    FORCE_INLINE Iterator indexToIter(SizeType index) {
         return Iterator{data() + index, this, m_version};
     }
 
@@ -578,7 +627,7 @@ private:
         }
     }
 
-    void updateVersion() {
+    FORCE_INLINE void updateVersion() {
         ++m_version;
     }
 

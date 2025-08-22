@@ -5,6 +5,86 @@
 template<class T, std::size_t N>
 using ArrayType = atom::containers::StaticArray<T, N>;
 
+TEST(TestStaticArray, TestIteratorsWithEmptyArray) {
+    ArrayType<int, 5> array;
+    EXPECT_EQ(array.firstIter(), array.endIter());
+    EXPECT_EQ(array.firstConstIter(), array.endConstIter());
+    EXPECT_EQ(array.firstReverseIter(), array.endReverseIter());
+    EXPECT_EQ(array.firstReverseConstIter(), array.endReverseConstIter());
+}
+
+TEST(TestStaticArray, TestOverflowExceptions) {
+    ArrayType<int, 2> array;
+    EXPECT_NO_THROW(array.pushBack(1));
+    EXPECT_NO_THROW(array.pushBack(2));
+    EXPECT_ANY_THROW(array.pushBack(3));
+    EXPECT_ANY_THROW(array.emplaceBack(3));
+    EXPECT_ANY_THROW(array.insert(array.firstConstIter(), 0));
+}
+
+TEST(TestStaticArray, TestBoundsChecking) {
+    ArrayType<int, 5> array;
+    array.pushBack(1);
+    array.pushBack(2);
+
+    EXPECT_NO_THROW(array[0]);
+    EXPECT_NO_THROW(array[1]);
+    EXPECT_ANY_THROW(array[2]);
+    EXPECT_ANY_THROW(array[100]);
+
+    const auto& constArray = array;
+    EXPECT_NO_THROW(constArray[0]);
+    EXPECT_ANY_THROW(constArray[2]);
+}
+
+TEST(TestStaticArray, TestSubscriptOperator) {
+    ArrayType<int, 5> array;
+    array.pushBack(10);
+    array.pushBack(20);
+
+    EXPECT_EQ(array[0], 10);
+    EXPECT_EQ(array[1], 20);
+
+    array[0] = 100;
+    EXPECT_EQ(array[0], 100);
+
+    const auto& constArray = array;
+    EXPECT_EQ(constArray[0], 100);
+}
+
+TEST(TestStaticArray, TestDataAndFrontBack) {
+    ArrayType<int, 5> array;
+    array.pushBack(1);
+    array.pushBack(2);
+    array.pushBack(3);
+
+    int* dataPtr = array.data();
+    EXPECT_EQ(dataPtr[0], 1);
+    EXPECT_EQ(dataPtr[1], 2);
+
+    EXPECT_EQ(array.firstElement(), 1);
+    EXPECT_EQ(array.lastElement(), 3);
+
+    const auto& constArray = array;
+    EXPECT_EQ(constArray.firstElement(), 1);
+    EXPECT_EQ(constArray.lastElement(), 3);
+}
+
+TEST(TestStaticArray, TestEmptyAndFull) {
+    ArrayType<int, 3> array;
+    EXPECT_TRUE(array.isEmpty());
+    EXPECT_FALSE(array.isFull());
+
+    array.pushBack(1);
+    EXPECT_FALSE(array.isEmpty());
+    EXPECT_FALSE(array.isFull());
+
+    array.pushBack(2);
+    array.pushBack(3);
+    EXPECT_FALSE(array.isEmpty());
+    EXPECT_TRUE(array.isFull());
+}
+
 TEST(TestStaticArray, TestWithSize) {
     {
         ArrayType<std::uint8_t, 5> array;
@@ -1447,9 +1527,61 @@ TEST(TestStaticArray, TestReverseIterators) {
             EXPECT_EQ(*it, i * 10);
         }
 
-        // Check insert into begin with reverse iter
+        // Check arithmetic
         {
-            //array.insert(array.firstReverseConstIter(), int{60});
+            auto cit = array.firstReverseConstIter();
+            EXPECT_EQ(*cit, int{50});
+
+            cit += 3;
+            EXPECT_EQ(*cit, int{20});
+
+            cit -= 2;
+            EXPECT_EQ(*cit, int{40});
+
+            EXPECT_GT(cit, array.firstReverseConstIter());
+            EXPECT_EQ(cit - array.firstReverseConstIter(), 1);
+
+            cit += 100;
+            EXPECT_TRUE(cit.isOutOfRange());
+
+            EXPECT_TRUE(array.firstReverseIter() < array.lastReverseIter());
+            EXPECT_TRUE(array.firstReverseIter() <= array.lastReverseIter());
+            EXPECT_TRUE(array.lastReverseIter() > array.firstReverseIter());
+            EXPECT_TRUE(array.lastReverseIter() >= array.firstReverseIter());
+
+            EXPECT_TRUE(array.firstReverseConstIter() < array.lastReverseConstIter());
+            EXPECT_TRUE(array.firstReverseConstIter() <= array.lastReverseConstIter());
+            EXPECT_TRUE(array.lastReverseConstIter() > array.firstReverseConstIter());
+            EXPECT_TRUE(array.lastReverseConstIter() >= array.firstReverseConstIter());
+        }
+
+        // Check reverse iter to usual iter
+        {
+            auto rIt = array.firstReverseIter();
+            EXPECT_EQ(*rIt, *array.lastIter());
+            ++rIt;
+
+            EXPECT_EQ(*rIt, *(--array.lastIter()));
+
+            rIt = array.lastReverseIter();
+            EXPECT_EQ(*rIt, *array.firstIter());
+
+            ++rIt;
+            EXPECT_EQ(rIt, array.endReverseIter());
+        }
+        // Check insert with const reverse iter
+        {
+            auto rIt = array.firstReverseConstIter();
+            EXPECT_EQ(*rIt, *array.lastConstIter());
+            ++rIt;
+
+            EXPECT_EQ(*rIt, *(--array.lastConstIter()));
+
+            rIt = array.lastReverseConstIter();
+            EXPECT_EQ(*rIt, *array.firstConstIter());
+
+            ++rIt;
+            EXPECT_EQ(rIt, array.endReverseConstIter());
         }
     }
     {
@@ -1457,5 +1589,14 @@ TEST(TestStaticArray, TestReverseIterators) {
         auto rFirstIt = array.firstReverseIter();
         auto rLastIt = array.lastReverseIter();
         EXPECT_TRUE(rFirstIt == array.endReverseIter() && rLastIt == array.endReverseIter());
+    }
+    // Check invalidation of reverse iterator
+    {
+        ArrayType<int, 1024> array;
+        auto it = array.firstReverseConstIter();
+        array.insert(it.reverse(), int{10});
+        EXPECT_TRUE(it.isExpired());
+        EXPECT_ANY_THROW(*it);
+        EXPECT_ANY_THROW(array.insert(it.reverse(), int{20}));
     }
 }

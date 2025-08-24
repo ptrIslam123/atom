@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 
-#include "include/containers/static/array.h"
+#include "include/containers/fixed/array.h"
 
 template<class T, std::size_t N>
-using ArrayType = atom::containers::StaticArray<T, N>;
+using ArrayType = atom::containers::fixed::Array<T, N>;
 
 TEST(TestStaticArray, TestIteratorsWithEmptyArray) {
     ArrayType<int, 5> array;
@@ -170,6 +170,112 @@ TEST(TestStaticArray, TestConstructors) {
         for (auto i = 0; i < array.size(); ++i) {
             EXPECT_EQ(array.atUnsafe(i).value, (i + 1) * 10);
         }
+    }
+}
+
+TEST(TestStaticArray, TestCopyConstructor) {
+    struct Foo {
+        Foo(int _value): value(_value) {}
+        Foo(const Foo& other): value(other.value) {}
+        Foo& operator=(const Foo& other) {
+            value = other.value;
+            return *this;
+        }
+        int value;
+    };
+
+    ArrayType<Foo, 64> array1;
+    for (auto i = 0; i < 5; ++i) {
+        array1.emplaceBack(int{i});
+    }
+    EXPECT_EQ(array1.size(), 5);
+
+    auto array2{array1};
+    EXPECT_EQ(array2.size(), array1.size());
+    for (auto i = 0; i < array2.size(); ++i) {
+        EXPECT_EQ(array1[i].value, array2[i].value);
+    }
+}
+
+TEST(TestStaticArray, TestCopyOperator) {
+    struct Foo {
+        Foo(int _value): value(_value) {}
+        Foo(const Foo& other): value(other.value) {}
+        Foo& operator=(const Foo& other) {
+            value = other.value;
+            return *this;
+        }
+        int value;
+    };
+
+    ArrayType<Foo, 64> array1;
+    for (auto i = 0; i < 5; ++i) {
+        array1.emplaceBack(int{i});
+    }
+    EXPECT_EQ(array1.size(), 5);
+
+    auto array2 = array1;
+    EXPECT_EQ(array2.size(), array1.size());
+    for (auto i = 0; i < array2.size(); ++i) {
+        EXPECT_EQ(array1[i].value, array2[i].value);
+    }
+}
+
+TEST(TestStaticArray, TestMoveConstructor) {
+    struct Foo {
+        Foo(const Foo&) = delete;
+        Foo& operator=(const Foo&) = delete;
+
+        Foo(int _value): value(_value) {}
+        Foo(Foo&& other): value(other.value) {}
+        Foo& operator=(Foo&& other) {
+            value = other.value;
+            return *this;
+        }
+        int value;
+    };
+
+    ArrayType<Foo, 64> array1;
+    for (auto i = 0; i < 5; ++i) {
+        array1.emplaceBack(int{i});
+    }
+    EXPECT_EQ(array1.size(), 5);
+
+    auto array2{std::move(array1)};
+    EXPECT_EQ(array2.size(), 5);
+    EXPECT_EQ(array1.size(), 0);
+
+    for (auto i = 0; i < array2.size(); ++i) {
+        EXPECT_EQ(array2[i].value, int{i});
+    }
+}
+
+TEST(TestStaticArray, TestMoveOperator) {
+    struct Foo {
+        Foo(const Foo&) = delete;
+        Foo& operator=(const Foo&) = delete;
+
+        Foo(int _value): value(_value) {}
+        Foo(Foo&& other): value(other.value) {}
+        Foo& operator=(Foo&& other) {
+            value = other.value;
+            return *this;
+        }
+        int value;
+    };
+
+    ArrayType<Foo, 64> array1;
+    for (auto i = 0; i < 5; ++i) {
+        array1.emplaceBack(int{i});
+    }
+    EXPECT_EQ(array1.size(), 5);
+
+    auto array2 = std::move(array1);
+    EXPECT_EQ(array2.size(), 5);
+    EXPECT_EQ(array1.size(), 0);
+
+    for (auto i = 0; i < array2.size(); ++i) {
+        EXPECT_EQ(array2[i].value, int{i});
     }
 }
 

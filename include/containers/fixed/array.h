@@ -1,8 +1,10 @@
 #ifndef ATOM_STATIC_ARRAY_H
 #define ATOM_STATIC_ARRAY_H
 
-#include "include/compiler/compiler_attr.h"
+#include "include/iterator/iterator_traits.h"
+#include "include/utils/compiler_attr.h"
 #include "include/utils/assertion.h"
+#include "include/memory/memory.h"
 
 #include <algorithm>
 #include <type_traits>
@@ -15,10 +17,18 @@
 #include <cstdint>
 #include <cassert>
 
-namespace atom::containers {
+namespace atom::containers::fixed {
+
+class ArrayException final : public std::exception {
+public:
+    explicit ArrayException(std::string_view msg): m_msg(msg) {}
+    virtual const char* what() const noexcept { return m_msg.data(); }
+private:
+    std::string m_msg;
+};
 
 template<typename T, std::size_t N>
-class StaticArray final {
+class Array final {
 public:
     using ElementType = T;
     using ReferenceType = ElementType&;
@@ -26,10 +36,9 @@ public:
     using PointerType = ElementType*;
     using ConstPointerType = const ElementType*;
     using SizeType = std::size_t;
-    using CapacityType = std::size_t;
     using VersionTagType = std::uint64_t;
 
-    class Iterator final {
+    class Iterator final : public iter::ContiguousIteratorTag {
     public:
         using difference_type = std::ptrdiff_t;
 
@@ -77,11 +86,11 @@ public:
         FORCE_INLINE bool isOutOfRange() const noexcept { return m_ptr >= m_array->endIter().m_ptr; }
 
     private:
-        friend StaticArray;
+        friend Array;
 
-        Iterator(PointerType ptr, const StaticArray* array, VersionTagType version):
+        Iterator(PointerType ptr, const Array* array, VersionTagType version):
         m_ptr(ptr),
-        m_array(const_cast<StaticArray*>(array)),
+        m_array(const_cast<Array*>(array)),
         m_version(version)
         {}
 
@@ -90,11 +99,11 @@ public:
         }
 
         PointerType m_ptr{nullptr};
-        StaticArray* m_array{nullptr};
+        Array* m_array{nullptr};
         VersionTagType m_version{0};
     };
 
-    class ConstIterator final {
+    class ConstIterator final : public iter::ContiguousIteratorTag {
     public:
         using difference_type = std::ptrdiff_t;
         ConstIterator(const Iterator it):
@@ -138,11 +147,11 @@ public:
         FORCE_INLINE bool isOutOfRange() const noexcept { return m_ptr >= m_array->endIter().m_ptr; }
 
     private:
-        friend StaticArray;
+        friend Array;
 
-        ConstIterator(PointerType ptr, const StaticArray* array, VersionTagType version):
+        ConstIterator(PointerType ptr, const Array* array, VersionTagType version):
         m_ptr(ptr),
-        m_array(const_cast<StaticArray*>(array)),
+        m_array(const_cast<Array*>(array)),
         m_version(version)
         {}
 
@@ -151,11 +160,11 @@ public:
         }
 
         PointerType m_ptr{nullptr};
-        StaticArray* m_array{nullptr};
+        Array* m_array{nullptr};
         VersionTagType m_version{0};
     };
 
-    class ReverseIterator final {
+    class ReverseIterator final : public iter::ContiguousIteratorTag {
     public:
         using difference_type = std::ptrdiff_t;
 
@@ -210,11 +219,11 @@ public:
         FORCE_INLINE bool isOutOfRange() const noexcept { return m_ptr < m_array->firstIter().m_ptr; }
 
     private:
-        friend StaticArray;
+        friend Array;
 
-        ReverseIterator(PointerType ptr, const StaticArray* array, VersionTagType version) :
+        ReverseIterator(PointerType ptr, const Array* array, VersionTagType version) :
         m_ptr(ptr),
-        m_array(const_cast<StaticArray*>(array)),
+        m_array(const_cast<Array*>(array)),
         m_version(version)
         {}
 
@@ -223,11 +232,11 @@ public:
         }
 
         PointerType m_ptr{nullptr};
-        StaticArray* m_array{nullptr};
+        Array* m_array{nullptr};
         VersionTagType m_version{0};
     };
 
-    class ReverseConstIterator final {
+    class ReverseConstIterator final : public iter::ContiguousIteratorTag {
     public:
         using difference_type = std::ptrdiff_t;
 
@@ -274,11 +283,11 @@ public:
         FORCE_INLINE bool isOutOfRange() const noexcept { return m_ptr < m_array->firstConstIter().m_ptr; }
 
     private:
-        friend StaticArray;
+        friend Array;
 
-        ReverseConstIterator(PointerType ptr, const StaticArray* array, VersionTagType version) :
+        ReverseConstIterator(PointerType ptr, const Array* array, VersionTagType version) :
         m_ptr(ptr),
-        m_array(const_cast<StaticArray*>(array)),
+        m_array(const_cast<Array*>(array)),
         m_version(version)
         {}
 
@@ -287,21 +296,34 @@ public:
         }
 
         PointerType m_ptr{nullptr};
-        StaticArray* m_array{nullptr};
+        Array* m_array{nullptr};
         VersionTagType m_version{0};
     };
 
-    explicit StaticArray() = default;
-    StaticArray(const T& data, SizeType count) {
+    FORCE_INLINE constexpr explicit Array() = default;
+    FORCE_INLINE Array(const Array& other) { copy(other); }
+    FORCE_INLINE Array(Array&& other) { swap(other); }
+    FORCE_INLINE Array& operator=(const Array& other) {
+        clear();
+        copy(other);
+        return *this;
+    }
+    FORCE_INLINE Array& operator=(Array&& other) {
+        clear();
+        swap(other);
+        return *this;
+    }
+
+    Array(const T& data, SizeType count) {
         insert(firstConstIter(), data, count);
     }
-    StaticArray(std::initializer_list<const T> data) {
+    Array(std::initializer_list<const T> data) {
         pushBack(data);
     }
-    StaticArray(std::span<const T> data) {
+    Array(std::span<const T> data) {
         pushBack(data);
     }
-    ~StaticArray() { clear(); }
+    ~Array() { clear(); }
 
     FORCE_INLINE void pushBack(std::initializer_list<const T> data) {
         pushBack(std::span<const T>{data});
@@ -375,14 +397,15 @@ public:
 
     void popBack() {
         ASSERTION(!isEmpty(), std::runtime_error, "Out of memory")
-        destruct(indexToPtr(size() - 1));
+        memory::Destruct(indexToPtr(size() - 1));
         --m_size;
     }
     FORCE_INLINE Iterator erase(ConstIterator pos) {
         return erase(pos, pos + 1);
     }
     Iterator erase(ConstIterator first, ConstIterator last) {
-        ASSERTION(!first.isExpired() && !last.isExpired(), std::runtime_error, "Using expired iterators to erase")
+        ASSERTION(!first.isExpired() && !last.isExpired(),
+                  std::runtime_error, "Using expired iterators to erase")
         if LIKELY_EXPR(first < last) {
             const auto firstIndex = iterToIndex(first);
             const auto lastIndex = iterToIndex(last);
@@ -410,7 +433,9 @@ public:
         }
     }
 
-    FORCE_INLINE ConstReferenceType atUnsafe(SizeType index) const noexcept { return *(data() + index); }
+    FORCE_INLINE ConstReferenceType atUnsafe(SizeType index) const noexcept {
+        return *(data() + index);
+    }
     FORCE_INLINE ReferenceType atUnsafe(SizeType index) noexcept { return *(data() + index); }
     ConstReferenceType operator[](SizeType index) const {
         ASSERTION(index < size(), std::runtime_error, "Out of range")
@@ -448,7 +473,9 @@ public:
     }
     Iterator endIter() noexcept { return Iterator{data() + size(), this, m_version}; }
 
-    ConstIterator firstConstIter() const noexcept { return ConstIterator{const_cast<PointerType>(data()), this, m_version}; }
+    ConstIterator firstConstIter() const noexcept {
+        return ConstIterator{const_cast<PointerType>(data()), this, m_version};
+    }
     ConstIterator lastConstIter() const noexcept {
         if LIKELY_EXPR(size() > 1) {
             return ConstIterator{const_cast<PointerType>(data()) + size() - 1, this, m_version};
@@ -456,7 +483,9 @@ public:
             return firstConstIter();
         }
     }
-    ConstIterator endConstIter() const noexcept { return ConstIterator{const_cast<PointerType>(data()) + size(), this, m_version}; }
+    ConstIterator endConstIter() const noexcept {
+        return ConstIterator{const_cast<PointerType>(data()) + size(), this, m_version};
+    }
 
     ReverseIterator firstReverseIter() noexcept {
         if LIKELY_EXPR(size() > 0) {
@@ -472,7 +501,9 @@ public:
             return endReverseIter();
         }
     }
-    ReverseIterator endReverseIter() noexcept { return ReverseIterator{data() - 1, this, m_version}; }
+    ReverseIterator endReverseIter() noexcept {
+        return ReverseIterator{data() - 1, this, m_version};
+    }
 
     ReverseConstIterator firstReverseConstIter() const noexcept {
         if LIKELY_EXPR(size() > 0) {
@@ -488,13 +519,15 @@ public:
             return endReverseConstIter();
         }
     }
-    ReverseConstIterator endReverseConstIter() const noexcept { return ReverseConstIterator{const_cast<PointerType>(data()) - 1, this, m_version}; }
+    ReverseConstIterator endReverseConstIter() const noexcept {
+        return ReverseConstIterator{const_cast<PointerType>(data()) - 1, this, m_version};
+    }
 
     FORCE_INLINE constexpr SizeType size() const noexcept {
         return m_size;
     }
 
-    FORCE_INLINE constexpr CapacityType capacity() const noexcept {
+    FORCE_INLINE constexpr SizeType capacity() const noexcept {
         return N;
     }
 
@@ -506,24 +539,60 @@ public:
         return size() >= capacity();
     }
 
-    FORCE_INLINE ConstPointerType data() const noexcept { return reinterpret_cast<ConstPointerType>(m_data); }
-    FORCE_INLINE PointerType data() noexcept { return reinterpret_cast<PointerType>(m_data); }
-
-private:
-    template<typename ... Arg>
-    FORCE_INLINE void construct(PointerType ptr, Arg&& ... arg) noexcept(std::is_nothrow_constructible_v<T>) {
-        new(ptr) T{std::forward<Arg>(arg) ... };
+    FORCE_INLINE ConstPointerType data() const noexcept {
+        return reinterpret_cast<ConstPointerType>(m_data);
+    }
+    FORCE_INLINE PointerType data() noexcept {
+        return reinterpret_cast<PointerType>(m_data);
     }
 
-    FORCE_INLINE void destruct(PointerType ptr) noexcept(std::is_nothrow_destructible_v<T>) {
-        ptr->~T();
+private:
+    void copy(const Array& other) IS_NOEXCEPT_CONSTRUCIBLE(T) {
+        assert(capacity() == other.capacity());
+        const auto otherSize = other.size();
+        PointerType thisSrc = data();
+        ConstPointerType otherSrc = other.data();
+        if constexpr (std::is_trivially_copyable_v<T> && std::is_default_constructible_v<T>) {
+            std::memcpy(thisSrc, otherSrc, otherSize * sizeof(T));
+        } else if constexpr (std::is_copy_constructible_v<T>) {
+            for (auto i = 0; i < otherSize; ++i) {
+                memory::Construct(thisSrc + i, *(otherSrc + i));
+            }
+        } else {
+            static_assert(std::is_copy_constructible_v<T>,
+                          "T must be copy constructible");
+        }
+        m_size = otherSize;
+    }
+    void swap(Array& other) IS_NOEXCEPT_CONSTR_AND_DESTR(T) {
+        assert(capacity() == other.capacity());
+        const auto otherSize = other.size();
+        auto thisSrc = data();
+        auto otherSrc = other.data();
+        if constexpr (std::is_trivially_copyable_v<T> && std::is_default_constructible_v<T>) {
+            std::memcpy(thisSrc, otherSrc, otherSize * sizeof(T));
+        } else if constexpr (std::is_move_constructible_v<T>) {
+            for (auto i = 0; i < otherSize; ++i) {
+                memory::Construct(thisSrc + i, std::move(*(otherSrc + i)));
+            }
+        } else if constexpr (std::is_copy_constructible_v<T>) {
+            for (auto i = 0; i < otherSize; ++i) {
+                memory::Construct(thisSrc + i, *(otherSrc + i));
+                memory::Destruct(otherSrc + i);
+            }
+        } else {
+            static_assert(std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>,
+                          "T must be move or copy constructible");
+        }
+        m_size = otherSize;
+        other.clear();
     }
 
     void destructElements(SizeType firstIndex, SizeType lastIndex) {
         assert(firstIndex <= lastIndex && firstIndex < size() && lastIndex <= size());
         const auto ptr = data();
         for (auto i = firstIndex; i < lastIndex; ++i) {
-            destruct(ptr + i);
+            memory::Destruct(ptr + i);
         }
         m_size -= lastIndex - firstIndex;
     }
@@ -544,7 +613,7 @@ private:
     Iterator insertBackElement(R&& data) {
         const auto index = size();
         assert(index < capacity());
-        construct(indexToPtr(index), std::forward<R>(data));
+        memory::Construct(indexToPtr(index), std::forward<R>(data));
         ++m_size;
         updateVersion();
         return indexToIter(index);
@@ -554,7 +623,7 @@ private:
     Iterator insertElement(SizeType index, R&& data) {
         assert(index < capacity());
         shiftElements(index, size(), 1);
-        construct(indexToPtr(index), std::forward<R>(data));
+        memory::Construct(indexToPtr(index), std::forward<R>(data));
         ++m_size;
         updateVersion();
         return indexToIter(index);
@@ -564,7 +633,7 @@ private:
     Iterator emplaceBackElement(Arg&& ... arg) {
         const auto index = size();
         assert(index < capacity());
-        construct(indexToPtr(index), std::forward<Arg>(arg) ... );
+        memory::Construct(indexToPtr(index), std::forward<Arg>(arg) ... );
         ++m_size;
         updateVersion();
         return lastIter();
@@ -574,7 +643,7 @@ private:
     Iterator emplaceElement(SizeType index, Arg&& ... arg) {
         assert(index < capacity());
         shiftElements(index, size(), 1);
-        construct(indexToPtr(index), std::forward<Arg>(arg) ... );
+        memory::Construct(indexToPtr(index), std::forward<Arg>(arg) ... );
         ++m_size;
         updateVersion();
         return lastIter();
@@ -600,8 +669,8 @@ private:
                     if constexpr (std::is_nothrow_move_assignable_v<T>) {
                         start[dstIdx] = std::move(start[srcIdx]);
                     } else if constexpr (std::is_copy_constructible_v<T>) {
-                        construct(start + dstIdx, start[srcIdx]);
-                        destruct(start + srcIdx);
+                        memory::Construct(start + dstIdx, start[srcIdx]);
+                        memory::Destruct(start + srcIdx);
                     } else {
                         static_assert(std::is_move_constructible_v<T>,
                             "Type T must be movable or copyable");
@@ -616,8 +685,8 @@ private:
                     if constexpr (std::is_nothrow_move_assignable_v<T>) {
                         start[dstIdx] = std::move(start[srcIdx]);
                     } else if constexpr (std::is_copy_constructible_v<T>) {
-                        construct(start + dstIdx, start[srcIdx]);
-                        destruct(start + srcIdx);
+                        memory::Construct(start + dstIdx, start[srcIdx]);
+                        memory::Destruct(start + srcIdx);
                     } else {
                         static_assert(std::is_move_constructible_v<T>,
                             "Type T must be movable or copyable");
@@ -636,6 +705,6 @@ private:
     std::byte m_data[N * sizeof(T)]{};
 };
 
-} //! namespace atom::containers
+} //! namespace atom::containers::fixed
 
 #endif //! ATOM_STATIC_ARRAY_H

@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <cstring>
 
-namespace atom::containers {
+namespace atom::containers::fixed {
 
 /**
  * @brief A static ring queue (circular buffer) implementation with fixed capacity
@@ -22,23 +22,23 @@ namespace atom::containers {
  * on overflow.
  *
  * @example
- * StaticRingQueue<int, 3> queue;
+ * RingQueue<int, 3> queue;
  * queue.enqueue(10);  // [10]
  * queue.enqueue(20);  // [10, 20]
  * queue.enqueue(30);  // [10, 20, 30] (full)
  * queue.enqueue(40);  // [20, 30, 40] (10 overwritten)
  */
 template<typename T, std::size_t Capacity>
-class StaticRingQueue final {
+class RingQueue final {
 public:
     using ValueType = T; //! Type of elements stored in the queue
 
-    explicit StaticRingQueue();
-    StaticRingQueue(const StaticRingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>);
-    StaticRingQueue(StaticRingQueue&& other) noexcept(std::is_nothrow_copy_constructible_v<T>);
-    StaticRingQueue& operator=(const StaticRingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>);
-    StaticRingQueue& operator=(StaticRingQueue&& other) noexcept(std::is_nothrow_copy_constructible_v<T>);
-    ~StaticRingQueue();
+    explicit RingQueue();
+    RingQueue(const RingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>);
+    RingQueue(RingQueue&& other) noexcept(std::is_nothrow_copy_constructible_v<T>);
+    RingQueue& operator=(const RingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>);
+    RingQueue& operator=(RingQueue&& other) noexcept(std::is_nothrow_copy_constructible_v<T>);
+    ~RingQueue();
 
     /**
      * @brief Constructs element in-place at the end of the queue
@@ -109,8 +109,8 @@ public:
     bool isFull() const noexcept;
 
 private:
-    void swap(StaticRingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>);
-    void copy(const StaticRingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>);
+    void swap(RingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>);
+    void copy(const RingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>);
 
     std::array<std::byte, Capacity * sizeof(T)> m_storage{};
     std::size_t m_head{0};
@@ -119,24 +119,24 @@ private:
 };
 
 template<typename T, std::size_t Capacity>
-StaticRingQueue<T, Capacity>::StaticRingQueue():
+RingQueue<T, Capacity>::RingQueue():
 m_head(0),
 m_tail(0),
 m_size(0)
 {}
 
 template<typename T, std::size_t Capacity>
-StaticRingQueue<T, Capacity>::StaticRingQueue(const StaticRingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>) {
+RingQueue<T, Capacity>::RingQueue(const RingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>) {
     (void)this->operator=(other);
 }
 
 template<typename T, std::size_t Capacity>
-StaticRingQueue<T, Capacity>::StaticRingQueue(StaticRingQueue&& other) noexcept(std::is_nothrow_copy_constructible_v<T>) {
+RingQueue<T, Capacity>::RingQueue(RingQueue&& other) noexcept(std::is_nothrow_copy_constructible_v<T>) {
     (void)this->operator=(other);
 }
 
 template<typename T, std::size_t Capacity>
-StaticRingQueue<T, Capacity>& StaticRingQueue<T, Capacity>::operator=(const StaticRingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>) {
+RingQueue<T, Capacity>& RingQueue<T, Capacity>::operator=(const RingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>) {
     if (this != &other) {
         clear();
         copy(other);
@@ -145,7 +145,7 @@ StaticRingQueue<T, Capacity>& StaticRingQueue<T, Capacity>::operator=(const Stat
 }
 
 template<typename T, std::size_t Capacity>
-StaticRingQueue<T, Capacity>& StaticRingQueue<T, Capacity>::operator=(StaticRingQueue&& other) noexcept(std::is_nothrow_copy_constructible_v<T>) {
+RingQueue<T, Capacity>& RingQueue<T, Capacity>::operator=(RingQueue&& other) noexcept(std::is_nothrow_copy_constructible_v<T>) {
     if (this != &other) {
         if constexpr (std::is_trivially_copyable_v<T> || std::is_nothrow_copy_constructible_v<T> && std::is_nothrow_copy_assignable_v<T>) {
             (void)this->operator=(other); // just copy
@@ -161,7 +161,7 @@ StaticRingQueue<T, Capacity>& StaticRingQueue<T, Capacity>::operator=(StaticRing
             }
         } else {
             // we have to  make temp instance to saveecontainer`s invariants in case copy/move T rise exception
-            StaticRingQueue tmp;
+            RingQueue tmp;
             swap(tmp, other);
             swap(tmp, *this);
         }
@@ -170,14 +170,14 @@ StaticRingQueue<T, Capacity>& StaticRingQueue<T, Capacity>::operator=(StaticRing
 }
 
 template<typename T, std::size_t Capacity>
-void StaticRingQueue<T, Capacity>::swap(StaticRingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>) {
+void RingQueue<T, Capacity>::swap(RingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>) {
     if constexpr (std::is_trivially_copyable_v<T>) {
-        StaticRingQueue tmp;
-        std::memcpy(&tmp, this, sizeof(StaticRingQueue));
-        std::memcpy(this, &other, sizeof(StaticRingQueue));
-        std::memcpy(&other, &tmp, sizeof(StaticRingQueue));
+        RingQueue tmp;
+        std::memcpy(&tmp, this, sizeof(RingQueue));
+        std::memcpy(this, &other, sizeof(RingQueue));
+        std::memcpy(&other, &tmp, sizeof(RingQueue));
     } else {
-        StaticRingQueue temp;
+        RingQueue temp;
         while (!isEmpty()) {
             temp.emplace(std::move(front()));
             dequeue();
@@ -196,7 +196,7 @@ void StaticRingQueue<T, Capacity>::swap(StaticRingQueue& other) noexcept(std::is
 }
 
 template<typename T, std::size_t Capacity>
-void StaticRingQueue<T, Capacity>::copy(const StaticRingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>) {
+void RingQueue<T, Capacity>::copy(const RingQueue& other) noexcept(std::is_nothrow_copy_constructible_v<T>) {
     if constexpr (std::is_trivial_v<T>) {
         std::memcpy(this, &other, sizeof(other));
     } else if constexpr (std::is_nothrow_copy_constructible_v<T>) {
@@ -223,13 +223,13 @@ void StaticRingQueue<T, Capacity>::copy(const StaticRingQueue& other) noexcept(s
 }
 
 template<typename T, std::size_t Capacity>
-StaticRingQueue<T, Capacity>::~StaticRingQueue() {
+RingQueue<T, Capacity>::~RingQueue() {
     clear();
 }
 
 template<typename T, std::size_t Capacity>
 template<typename... Args>
-void StaticRingQueue<T, Capacity>::emplace(Args&&... args) {
+void RingQueue<T, Capacity>::emplace(Args&&... args) {
     if (!isFull()) {}
     else {
         reinterpret_cast<T*>(&m_storage[m_head * sizeof(T)])->~T();
@@ -243,17 +243,17 @@ void StaticRingQueue<T, Capacity>::emplace(Args&&... args) {
 }
 
 template<typename T, std::size_t Capacity>
-void StaticRingQueue<T, Capacity>::enqueue(const T& value) {
+void RingQueue<T, Capacity>::enqueue(const T& value) {
     emplace(value);
 }
 
 template<typename T, std::size_t Capacity>
-void StaticRingQueue<T, Capacity>::enqueue(T&& value) {
+void RingQueue<T, Capacity>::enqueue(T&& value) {
     emplace(std::move(value));
 }
 
 template<typename T, std::size_t Capacity>
-void StaticRingQueue<T, Capacity>::dequeue() {
+void RingQueue<T, Capacity>::dequeue() {
     ASSERTION(!isEmpty(), std::runtime_error, "Queue is empty")
     reinterpret_cast<T*>(&m_storage[m_head * sizeof(T)])->~T();
     m_head = (m_head + 1) % capacity();
@@ -261,51 +261,51 @@ void StaticRingQueue<T, Capacity>::dequeue() {
 }
 
 template<typename T, std::size_t Capacity>
-T& StaticRingQueue<T, Capacity>::front() {
+T& RingQueue<T, Capacity>::front() {
     ASSERTION(!isEmpty(), std::runtime_error, "Queue is empty")
     return *reinterpret_cast<T*>(&m_storage[m_head * sizeof(T)]);
 }
 
 template<typename T, std::size_t Capacity>
-const T& StaticRingQueue<T, Capacity>::front() const {
+const T& RingQueue<T, Capacity>::front() const {
     ASSERTION(!isEmpty(), std::runtime_error, "Queue is empty")
     return *reinterpret_cast<const T*>(&m_storage[m_head * sizeof(T)]);
 }
 
 template<typename T, std::size_t Capacity>
-T& StaticRingQueue<T, Capacity>::back() {
+T& RingQueue<T, Capacity>::back() {
     ASSERTION(!isEmpty(), std::runtime_error, "Queue is empty")
     return *reinterpret_cast<T*>(&m_storage[((m_tail - 1 + capacity()) % capacity()) * sizeof(T)]);
 }
 
 template<typename T, std::size_t Capacity>
-const T& StaticRingQueue<T, Capacity>::back() const {
+const T& RingQueue<T, Capacity>::back() const {
     ASSERTION(!isEmpty(), std::runtime_error, "Queue is empty")
     return *reinterpret_cast<const T*>(&m_storage[((m_tail - 1 + capacity()) % capacity()) * sizeof(T)]);
 }
 
 template<typename T, std::size_t Capacity>
-bool StaticRingQueue<T, Capacity>::isEmpty() const noexcept {
+bool RingQueue<T, Capacity>::isEmpty() const noexcept {
     return size() == 0;
 }
 
 template<typename T, std::size_t Capacity>
-bool StaticRingQueue<T, Capacity>::isFull() const noexcept {
+bool RingQueue<T, Capacity>::isFull() const noexcept {
     return size() == capacity();
 }
 
 template<typename T, std::size_t Capacity>
-std::size_t StaticRingQueue<T, Capacity>::size() const noexcept {
+std::size_t RingQueue<T, Capacity>::size() const noexcept {
     return m_size;
 }
 
 template<typename T, std::size_t Capacity>
-constexpr std::size_t StaticRingQueue<T, Capacity>::capacity() const noexcept {
+constexpr std::size_t RingQueue<T, Capacity>::capacity() const noexcept {
     return Capacity;
 }
 
 template<typename T, std::size_t Capacity>
-void StaticRingQueue<T, Capacity>::clear() {
+void RingQueue<T, Capacity>::clear() {
     while (!isEmpty()) {
         dequeue();
     }

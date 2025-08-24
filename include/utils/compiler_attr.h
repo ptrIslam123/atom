@@ -248,4 +248,10 @@
     #define FALLTHROUGH
 #endif
 
+#include <type_traits>
+#define IS_NOEXCEPT_CONSTRUCIBLE(T) noexcept(std::is_nothrow_constructible<T>::value)
+#define IS_NOEXCEPT_DESTRUCTIBLE(T) noexcept(std::is_nothrow_destructible<T>::value)
+#define IS_NOEXCEPT_CONSTR_AND_DESTR(T) noexcept(std::is_nothrow_constructible<T>::value && \
+                                                std::is_nothrow_destructible<T>::value)
+
 #endif // ATOM_COMPILER_ATTR_H

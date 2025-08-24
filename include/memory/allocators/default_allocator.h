@@ -18,7 +18,7 @@ namespace atom::memory::allocator {
  * This struct provides methods for allocating, reallocating, and deallocating memory,
  * as well as constructing and destructing objects in the allocated memory.
  */
-struct DefaultAllocator final {
+struct DefaultAllocator {
     /**
      * @brief Allocates a block of memory of the specified size.
      *

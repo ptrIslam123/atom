@@ -13,127 +13,106 @@
 #include <exception>
 #include <cstdint>
 
-#define STATE_NONE 0
-#define STATE_UNBIND 1
-#define STATE_BIND 2
-#define STATE_IN_PROCESS_SETTING 3
-#define STATE_SET 4
-
 namespace atom::async {
 
-template<typename T>
-class Future;
-template<typename T>
-class DynamicFuture;
-template<typename T>
-class Promise;
+//template<typename T>
+//class Future;
+//template<typename T>
+//class DynamicFuture;
+//template<typename T>
+//class Promise;
 
-template<typename T>
-void Bind(Future<T>& f, Promise<T>& p);
-template<typename T>
-void Unbind(Future<T>& f, Promise<T>& p);
+//template<typename T>
+//void Bind(Future<T>& f, Promise<T>& p);
+//template<typename T>
+//void Unbind(Future<T>& f, Promise<T>& p);
 
-template<typename T>
-class Promise final {
-public:
-    explicit Promise() = default;
-    Promise(const Promise& other) noexcept = default;
-    Promise(Promise&& other) noexcept = default;
-    Promise& operator=(const Promise& other) noexcept = default;
-    Promise& operator=(Promise&& other) noexcept = default;
-    ~Promise() {
+//enum FutureStatus {
+//    Unbind,
+//    Bind,
+//    InProcessSetting,
+//    Set,
+//};
 
-    }
+//template<typename T>
+//class Promise final {
+//public:
+//    explicit Promise() = default;
+//    Promise(const Promise& other) noexcept = delete;
+//    Promise(Promise&& other) noexcept = delete;
+//    Promise& operator=(const Promise& other) noexcept = delete;
+//    Promise& operator=(Promise&& other) noexcept = delete;
+//    ~Promise() {}
 
-    template<typename R>
-    void set(R&& value) {
+//    template<typename R>
+//    void set(R&& value) {
 
-    }
+//    }
 
-    template<typename ... Arg>
-    void emplace(Arg&& ... arg) {
+//    template<typename ... Arg>
+//    void emplace(Arg&& ... arg) {
 
-    }
+//    }
 
-    bool isCanceled() const noexcept {
+//private:
+//    friend void Bind<T>(Future<T>&, Promise<T>&);
+//    friend void Unbind<T>(Future<T>&, Promise<T>&);
+//};
 
-    }
+//template<typename T>
+//class Future final {
+//public:
+//    explicit Future() = default;
+//    Future(const Future& other) noexcept = default;
+//    Future(Future&& other) noexcept = default;
+//    Future& operator=(const Future& other) noexcept = default;
+//    Future& operator=(Future&& other) noexcept = default;
+//    ~Future() {
+//    }
 
-private:
-    friend void Bind<T>(Future<T>&, Promise<T>&);
-    friend void Unbind<T>(Future<T>&, Promise<T>&);
+//    template<typename Rep, typename Period>
+//    bool waitFor(const std::chrono::duration<Rep, Period>& timeout) {
 
-    std::atomic<bool> m_isCanceled{false};
-    std::atomic<std::uint32_t>* m_state{nullptr};
-    std::span<std::byte> m_storage{};
-};
-
-template<typename T>
-class Future final {
-public:
-    explicit Future() = default;
-    Future(const Future& other) noexcept = delete;
-    Future(Future&& other) noexcept = delete;
-    Future& operator=(const Future& other) noexcept = delete;
-    Future& operator=(Future&& other) noexcept = delete;
-    ~Future() {
-
-    }
-
-    template<typename Rep, typename Period>
-    bool waitFor(const std::chrono::duration<Rep, Period>& timeout) {
-
-    }
+//    }
 
 
-    template<typename Rep, typename Period>
-    bool waitUntil(const std::chrono::duration<Rep, Period>& timeout) {
+//    template<typename Rep, typename Period>
+//    bool waitUntil(const std::chrono::duration<Rep, Period>& timeout) {
 
-    }
+//    }
 
-    void wait() {
+//    void wait() {
+//    }
 
-    }
+//    bool isReady() const noexcept {
+//        return static_cast<FutureStatus>(m_pStatus->load()) == FutureStatus::Set;
+//    }
 
-    void cancel() {
+//    T& get() {
 
-    }
+//    }
 
-    bool isReady() const noexcept {
+//    const T& get() const {
 
-    }
+//    }
 
-    T& get() {
-        ASSERTION(isReady(), std::runtime_error, "Attept to get is not ready value yet")
-        return *reinterpret_cast<T*>(m_data.data());
-    }
+//private:
+//    friend void Bind<T>(Future<T>&, Promise<T>&);
+//    friend void Unbind<T>(Future<T>&, Promise<T>&);
 
-    const T& get() const {
-        ASSERTION(isReady(), std::runtime_error, "Attept to get is not ready value yet")
-        return *reinterpret_cast<const T*>(m_data.data());
-    }
+//    std::atomic<std::uint32_t>* m_pStatus{nullptr};
+//    std::array<std::byte, sizeof(T)>* m_pData{nullptr};
+//};
 
-private:
-    friend void Bind<T>(Future<T>&, Promise<T>&);
-    friend void Unbind<T>(Future<T>&, Promise<T>&);
+//template<typename T>
+//void Bind(Future<T>& f, Promise<T>& p) {
 
-    std::atomic<bool>* m_isCanceled{nullptr};
-    std::atomic<std::uint32_t> m_state;
-    std::array<std::byte, sizeof(T)> m_data;
-};
+//}
 
-template<typename T>
-void Bind(Future<T>& f, Promise<T>& p) {
-    f.m_isCanceled = &p.m_isCanceled;
+//template<typename T>
+//void Unbind(Future<T>& f, Promise<T>& p) {
 
-    p.m_state = &f.m_state;
-    p.m_storage = f.m_data;
-}
-
-template<typename T>
-void Unbind(Future<T>& f, Promise<T>& p) {
-
-}
+//}
 
 } //! namespace atom::async
 

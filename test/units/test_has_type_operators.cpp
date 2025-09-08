@@ -20,6 +20,8 @@ TEST(TestHashClassOperators, TestOperatorDeref) {
     EXPECT_FALSE((has_operator_deref_v<Obj3, int>));
     EXPECT_TRUE((has_operator_deref_v<Obj4, Obj4&>));
     EXPECT_TRUE((has_operator_deref_v<const Obj4, const Obj4&>));
+    EXPECT_TRUE((has_operator_deref_v<int*, int&>));
+    EXPECT_TRUE((has_operator_deref_v<const int*, const int&>));
 }
 
 TEST(TestHashClassOperators, TestOperatorNotEq) {
@@ -104,32 +106,32 @@ TEST(TestHashClassOperators, TestOperatorLess) {
     EXPECT_FALSE((has_operator_less_v<Obj3, const Obj3&>));
 }
 
-TEST(TestHashClassOperators, TestOperatorPlusAny) {
+TEST(TestHashClassOperators, TestOperatorNonModifyPlus) {
     struct Counter1 {
-        Counter1 operator+(const Counter1& other);
+        Counter1 operator+(const Counter1& other) const;
     };
     struct Counter2 {};
     struct Counter3 {
-        Counter3 operator+(int n);
+        Counter3 operator+(int n) const;
     };
 
-    EXPECT_TRUE((has_operator_plus_any_v<Counter1, Counter1, const Counter1&>));
-    EXPECT_FALSE((has_operator_plus_any_v<Counter2, Counter2, const Counter2&>));
-    EXPECT_TRUE((has_operator_plus_any_v<Counter3, Counter3, int>));
+    EXPECT_TRUE((has_operator_nonmodify_plus_v<const Counter1, Counter1, const Counter1&>));
+    EXPECT_FALSE((has_operator_nonmodify_plus_v<Counter2, Counter2, const Counter2&>));
+    EXPECT_TRUE((has_operator_nonmodify_plus_v<const Counter3, Counter3, int>));
 }
 
-TEST(TestHashClassOperators, TestOperatorMinusAny) {
+TEST(TestHashClassOperators, TestOperatorNonModifyMinus) {
     struct Counter1 {
-        Counter1 operator-(const Counter1& other);
+        Counter1 operator-(const Counter1& other) const;
     };
     struct Counter2 {};
     struct Counter3 {
-        Counter3 operator-(int n);
+        Counter3 operator-(int n) const;
     };
 
-    EXPECT_TRUE((has_operator_minus_any_v<Counter1, Counter1, const Counter1&>));
-    EXPECT_FALSE((has_operator_minus_any_v<Counter2, Counter2, const Counter2&>));
-    EXPECT_TRUE((has_operator_minus_any_v<Counter3, Counter3, int>));
+    EXPECT_TRUE((has_operator_nonmodify_minus_v<const Counter1, Counter1, const Counter1&>));
+    EXPECT_FALSE((has_operator_nonmodify_minus_v<Counter2, Counter2, const Counter2&>));
+    EXPECT_TRUE((has_operator_nonmodify_minus_v<const Counter3, Counter3, int>));
 }
 
 TEST(TestHashClassOperators, TestOperatorDecr) {
@@ -162,20 +164,20 @@ TEST(TestHashClassOperators, TestOperatorIncr) {
 
 TEST(TestHashClassOperators, TestOperatorPlus) {
     struct Obj1 {
-        Obj1 operator+(const Obj1& other) const;
+        Obj1& operator+=(const Obj1& other);
     };
     struct Obj2 {
-        Obj2 operator+(Obj2 other) const;
+        Obj2& operator+=(Obj2 other);
     };
     struct Obj3 {};
     struct Obj4 {
-        Obj4 operator+(int n) const;
+        Obj4& operator+=(int n);
     };
 
-    EXPECT_TRUE((has_operator_plus_v<Obj1, Obj1, const Obj1&>));
-    EXPECT_TRUE((has_operator_plus_v<Obj2, Obj2, Obj2>));
+    EXPECT_TRUE((has_operator_plus_v<Obj1, Obj1&, const Obj1&>));
+    EXPECT_TRUE((has_operator_plus_v<Obj2, Obj2&, Obj2>));
     EXPECT_FALSE((has_operator_plus_v<Obj3, Obj3, const Obj3&>));
-    EXPECT_TRUE((has_operator_plus_v<Obj4, Obj4, int>));
+    EXPECT_TRUE((has_operator_plus_v<Obj4, Obj4&, int>));
 }
 
 TEST(TestHashClassOperators, TestOperatorMinus) {
@@ -190,8 +192,8 @@ TEST(TestHashClassOperators, TestOperatorMinus) {
         Obj4 operator-(int n) const;
     };
 
-    EXPECT_TRUE((has_operator_minus_v<Obj1, Obj1, const Obj1&>));
-    EXPECT_TRUE((has_operator_minus_v<Obj2, Obj2, Obj2>));
-    EXPECT_FALSE((has_operator_minus_v<Obj3, Obj3, const Obj3&>));
-    EXPECT_TRUE((has_operator_minus_v<Obj4, Obj4, int>));
+    EXPECT_TRUE((has_operator_nonmodify_minus_v<Obj1, Obj1, const Obj1&>));
+    EXPECT_TRUE((has_operator_nonmodify_minus_v<Obj2, Obj2, Obj2>));
+    EXPECT_FALSE((has_operator_nonmodify_minus_v<Obj3, Obj3, const Obj3&>));
+    EXPECT_TRUE((has_operator_nonmodify_minus_v<Obj4, Obj4, int>));
 }

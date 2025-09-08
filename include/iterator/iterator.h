@@ -114,7 +114,7 @@ template<typename Iterator>
 constexpr typename IteratorTraits<Iterator>::DifferenceType
 Distance(Iterator first, Iterator last) {
     typename IteratorTraits<Iterator>::DifferenceType result{};
-    if constexpr (isContiguousIterator<Iterator> || isRandomAccessIterator<Iterator>) {
+    if constexpr (isRandomAccessIterator<Iterator>) {
         result = last - first;
     } else {
         while (first != last) {
@@ -142,7 +142,7 @@ Next(Iterator it, typename IteratorTraits<Iterator>::DifferenceType n) {
 template<typename Iterator, typename Distance>
 constexpr void Advance(Iterator& it, Distance distance) {
     using namespace ::atom::iter;
-    if constexpr (isContiguousIterator<Iterator> || isRandomAccessIterator<Iterator>) {
+    if constexpr (isRandomAccessIterator<Iterator>) {
         it += distance;
     } else if (isBidirectionalIterator<Iterator>) {
         if (distance > 0) {

@@ -1,7 +1,6 @@
 #ifndef ATOM_STATIC_ARRAY_H
 #define ATOM_STATIC_ARRAY_H
 
-#include "include/iterator/iterator_traits.h"
 #include "include/utils/compiler_attr.h"
 #include "include/utils/assertion.h"
 #include "include/memory/memory.h"
@@ -38,10 +37,8 @@ public:
     using SizeType = std::size_t;
     using VersionTagType = std::uint64_t;
 
-    class Iterator final : public iter::ContiguousIteratorTag {
+    class Iterator final {
     public:
-        using difference_type = std::ptrdiff_t;
-
         Iterator(const Iterator& other) noexcept { operator=(other); }
         Iterator(Iterator&& other) noexcept { operator=(std::move(other)); }
         Iterator& operator=(const Iterator& other) noexcept { copy(other); return *this; }
@@ -69,12 +66,13 @@ public:
         FORCE_INLINE Iterator& operator--() noexcept { --m_ptr; return *this; }
         FORCE_INLINE Iterator operator--(int) noexcept { Iterator tmp = *this; --m_ptr; return tmp; }
 
-        FORCE_INLINE Iterator operator+(int n) const noexcept { return Iterator{m_ptr + n, m_array, m_version}; }
-        FORCE_INLINE Iterator operator-(int n) const noexcept { return Iterator{m_ptr - n, m_array, m_version}; }
-        FORCE_INLINE Iterator operator+=(int n) noexcept { m_ptr += n; return *this; }
-        FORCE_INLINE Iterator operator-=(int n) noexcept { m_ptr -= n; return *this; }
-        FORCE_INLINE difference_type operator-(const Iterator& other) const noexcept { return m_ptr - other.m_ptr; }
-
+        FORCE_INLINE Iterator operator+(std::ptrdiff_t n) const noexcept { return Iterator{m_ptr + n, m_array, m_version}; }
+        FORCE_INLINE Iterator operator-(std::ptrdiff_t n) const noexcept { return Iterator{m_ptr - n, m_array, m_version}; }
+        FORCE_INLINE Iterator& operator+=(std::ptrdiff_t n) noexcept { m_ptr += n; return *this; }
+        FORCE_INLINE Iterator& operator-=(std::ptrdiff_t n) noexcept { m_ptr -= n; return *this; }
+        FORCE_INLINE std::ptrdiff_t operator-(const Iterator& other) const noexcept { return m_ptr - other.m_ptr; }
+        FORCE_INLINE ConstReferenceType operator[](std::ptrdiff_t n) const { return (operator+(n)).operator*(); }
+        FORCE_INLINE ReferenceType operator[](std::ptrdiff_t n) { return (operator+(n)).operator*(); }
         FORCE_INLINE bool operator==(const Iterator& other) const noexcept { return m_ptr == other.m_ptr; }
         FORCE_INLINE bool operator!=(const Iterator& other) const noexcept { return m_ptr != other.m_ptr; }
         FORCE_INLINE bool operator<(const Iterator& other) const noexcept { return m_ptr < other.m_ptr; }
@@ -103,9 +101,8 @@ public:
         VersionTagType m_version{0};
     };
 
-    class ConstIterator final : public iter::ContiguousIteratorTag {
+    class ConstIterator final {
     public:
-        using difference_type = std::ptrdiff_t;
         ConstIterator(const Iterator it):
         m_ptr(it.m_ptr),
         m_array(it.m_array),
@@ -130,11 +127,13 @@ public:
         FORCE_INLINE ConstIterator& operator--() noexcept { --m_ptr; return *this; }
         FORCE_INLINE ConstIterator operator--(int) noexcept { ConstIterator tmp = *this; --m_ptr; return tmp; }
 
-        FORCE_INLINE ConstIterator operator+(int n) const noexcept { return ConstIterator{m_ptr + n, m_array, m_version}; }
-        FORCE_INLINE ConstIterator operator-(int n) const noexcept { return ConstIterator{m_ptr - n, m_array, m_version}; }
-        FORCE_INLINE ConstIterator& operator+=(int n) noexcept { m_ptr += n; return *this; }
-        FORCE_INLINE ConstIterator& operator-=(int n) noexcept { m_ptr -= n; return *this; }
-        FORCE_INLINE difference_type operator-(const Iterator& other) const noexcept { return m_ptr - other.m_ptr; }
+        FORCE_INLINE ConstIterator operator+(std::ptrdiff_t n) const noexcept { return ConstIterator{m_ptr + n, m_array, m_version}; }
+        FORCE_INLINE ConstIterator operator-(std::ptrdiff_t n) const noexcept { return ConstIterator{m_ptr - n, m_array, m_version}; }
+        FORCE_INLINE ConstIterator& operator+=(std::ptrdiff_t n) noexcept { m_ptr += n; return *this; }
+        FORCE_INLINE ConstIterator& operator-=(std::ptrdiff_t n) noexcept { m_ptr -= n; return *this; }
+        FORCE_INLINE std::ptrdiff_t operator-(const Iterator& other) const noexcept { return m_ptr - other.m_ptr; }
+        FORCE_INLINE ConstReferenceType operator[](std::ptrdiff_t n) const { return (operator+(n)).operator*(); }
+        FORCE_INLINE ReferenceType operator[](std::ptrdiff_t n) { return (operator+(n)).operator*(); }
 
         FORCE_INLINE bool operator==(const ConstIterator& other) const noexcept { return m_ptr == other.m_ptr; }
         FORCE_INLINE bool operator!=(const ConstIterator& other) const noexcept { return m_ptr != other.m_ptr; }
@@ -164,10 +163,8 @@ public:
         VersionTagType m_version{0};
     };
 
-    class ReverseIterator final : public iter::ContiguousIteratorTag {
+    class ReverseIterator final {
     public:
-        using difference_type = std::ptrdiff_t;
-
         ReverseIterator(const ReverseIterator& other) noexcept { operator=(other); }
         ReverseIterator(ReverseIterator&& other) noexcept { operator=(std::move(other)); }
         ReverseIterator& operator=(const ReverseIterator& other) noexcept { copy(other); return *this; }
@@ -202,11 +199,13 @@ public:
         FORCE_INLINE ReverseIterator& operator--() noexcept { ++m_ptr; return *this; }
         FORCE_INLINE ReverseIterator operator--(int) noexcept { ReverseIterator tmp = *this; ++m_ptr; return tmp; }
 
-        FORCE_INLINE ReverseIterator operator+(int n) const noexcept { return ReverseIterator{m_ptr - n, m_array, m_version}; }
-        FORCE_INLINE ReverseIterator operator-(int n) const noexcept { return ReverseIterator{m_ptr + n, m_array, m_version}; }
-        FORCE_INLINE ReverseIterator& operator+=(int n) noexcept { m_ptr -= n; return *this; }
-        FORCE_INLINE ReverseIterator& operator-=(int n) noexcept { m_ptr += n; return *this; }
-        FORCE_INLINE difference_type operator-(const ReverseIterator& other) const noexcept { return other.m_ptr - m_ptr; }
+        FORCE_INLINE ReverseIterator operator+(std::ptrdiff_t n) const noexcept { return ReverseIterator{m_ptr - n, m_array, m_version}; }
+        FORCE_INLINE ReverseIterator operator-(std::ptrdiff_t n) const noexcept { return ReverseIterator{m_ptr + n, m_array, m_version}; }
+        FORCE_INLINE ReverseIterator& operator+=(std::ptrdiff_t n) noexcept { m_ptr -= n; return *this; }
+        FORCE_INLINE ReverseIterator& operator-=(std::ptrdiff_t n) noexcept { m_ptr += n; return *this; }
+        FORCE_INLINE std::ptrdiff_t operator-(const ReverseIterator& other) const noexcept { return other.m_ptr - m_ptr; }
+        FORCE_INLINE ConstReferenceType operator[](std::ptrdiff_t n) const { return (operator+(n)).operator*(); }
+        FORCE_INLINE ReferenceType operator[](std::ptrdiff_t n) { return (operator+(n)).operator*(); }
 
         FORCE_INLINE bool operator==(const ReverseIterator& other) const noexcept { return m_ptr == other.m_ptr; }
         FORCE_INLINE bool operator!=(const ReverseIterator& other) const noexcept { return m_ptr != other.m_ptr; }
@@ -236,10 +235,8 @@ public:
         VersionTagType m_version{0};
     };
 
-    class ReverseConstIterator final : public iter::ContiguousIteratorTag {
+    class ReverseConstIterator final {
     public:
-        using difference_type = std::ptrdiff_t;
-
         ReverseConstIterator(const ReverseConstIterator& other) noexcept { operator=(other); }
         ReverseConstIterator(ReverseConstIterator&& other) noexcept { operator=(std::move(other)); }
         ReverseConstIterator& operator=(const ReverseConstIterator& other) noexcept { copy(other); return *this; }
@@ -266,11 +263,13 @@ public:
         FORCE_INLINE ReverseConstIterator& operator--() noexcept { ++m_ptr; return *this; }
         FORCE_INLINE ReverseConstIterator operator--(int) noexcept { ReverseConstIterator tmp = *this; ++m_ptr; return tmp; }
 
-        FORCE_INLINE ReverseConstIterator operator+(int n) const noexcept { return ReverseConstIterator{m_ptr - n, m_array, m_version}; }
-        FORCE_INLINE ReverseConstIterator operator-(int n) const noexcept { return ReverseConstIterator{m_ptr + n, m_array, m_version}; }
-        FORCE_INLINE ReverseConstIterator& operator+=(int n) noexcept { m_ptr -= n; return *this; }
-        FORCE_INLINE ReverseConstIterator& operator-=(int n) noexcept { m_ptr += n; return *this; }
-        FORCE_INLINE difference_type operator-(const ReverseConstIterator& other) const noexcept { return other.m_ptr - m_ptr; }
+        FORCE_INLINE ReverseConstIterator operator+(std::ptrdiff_t n) const noexcept { return ReverseConstIterator{m_ptr - n, m_array, m_version}; }
+        FORCE_INLINE ReverseConstIterator operator-(std::ptrdiff_t n) const noexcept { return ReverseConstIterator{m_ptr + n, m_array, m_version}; }
+        FORCE_INLINE ReverseConstIterator& operator+=(std::ptrdiff_t n) noexcept { m_ptr -= n; return *this; }
+        FORCE_INLINE ReverseConstIterator& operator-=(std::ptrdiff_t n) noexcept { m_ptr += n; return *this; }
+        FORCE_INLINE std::ptrdiff_t operator-(const ReverseConstIterator& other) const noexcept { return other.m_ptr - m_ptr; }
+        FORCE_INLINE ConstReferenceType operator[](std::ptrdiff_t n) const { return (operator+(n)).operator*(); }
+        FORCE_INLINE ReferenceType operator[](std::ptrdiff_t n) { return (operator+(n)).operator*(); }
 
         FORCE_INLINE bool operator==(const ReverseConstIterator& other) const noexcept { return m_ptr == other.m_ptr; }
         FORCE_INLINE bool operator!=(const ReverseConstIterator& other) const noexcept { return m_ptr != other.m_ptr; }

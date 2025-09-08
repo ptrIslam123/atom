@@ -5,11 +5,11 @@
 #include <type_traits>
 
 template<typename T, typename RetType, typename Arg>
-struct has_operator_plus {
+    struct has_operator_plus {
 private:
     template<typename U>
     static auto test(int) -> std::enable_if_t<
-        std::is_same_v<RetType, decltype(std::declval<U>().operator+(std::declval<Arg>()))>,
+        std::is_same_v<RetType, decltype(std::declval<U>() += std::declval<Arg>())>,
         std::true_type>;
 
     template<typename>
@@ -29,7 +29,7 @@ struct has_operator_minus {
 private:
     template<typename U>
     static auto test(int) -> std::enable_if_t<
-        std::is_same_v<RetType, decltype(std::declval<U>().operator-(std::declval<Arg>()))>,
+        std::is_same_v<RetType, decltype(std::declval<U>() -= std::declval<Arg>())>,
         std::true_type>;
 
     template<typename>
@@ -129,7 +129,7 @@ inline constexpr bool has_operator_postfix_minus_minus_v =
 
 
 template<typename T, typename RetType, typename RightOperand>
-struct has_operator_plus_any {
+struct has_operator_nonmodify_plus {
 private:
     template<typename U>
     static auto test(int) -> std::enable_if_t<
@@ -144,13 +144,13 @@ public:
 };
 
 template<typename T, typename RetType, typename RightOperand>
-inline constexpr bool has_operator_plus_any_v =
-    has_operator_plus_any<T, RetType, RightOperand>::value;
+inline constexpr bool has_operator_nonmodify_plus_v =
+    has_operator_nonmodify_plus<T, RetType, RightOperand>::value;
 
 
 
 template<typename T, typename RetType, typename RightOperand>
-struct has_operator_minus_any {
+struct has_operator_nonmodify_minus {
 private:
     template<typename U>
     static auto test(int) -> std::enable_if_t<
@@ -165,8 +165,8 @@ public:
 };
 
 template<typename T, typename RetType, typename RightOperand>
-inline constexpr bool has_operator_minus_any_v =
-    has_operator_minus_any<T, RetType, RightOperand>::value;
+inline constexpr bool has_operator_nonmodify_minus_v =
+    has_operator_nonmodify_minus<T, RetType, RightOperand>::value;
 
 
 
@@ -322,7 +322,7 @@ struct has_operator_square_brackets {
 private:
     template<typename U>
     static auto test(int) -> std::enable_if_t<
-        std::is_same_v<RetType, decltype(std::declval<U>().operator[](0))>,
+        std::is_same_v<RetType, decltype(std::declval<U>()[0])>,
         std::true_type>;
 
     template<typename>

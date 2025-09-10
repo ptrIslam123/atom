@@ -1,6 +1,8 @@
 #ifndef ATOM_STATIC_ARRAY_H
 #define ATOM_STATIC_ARRAY_H
 
+#include "include/iterator/iterator_traits.h"
+#include "include/iterator/iterator.h"
 #include "include/utils/compiler_attr.h"
 #include "include/utils/assertion.h"
 #include "include/memory/memory.h"
@@ -8,7 +10,6 @@
 #include <algorithm>
 #include <type_traits>
 #include <exception>
-#include <span>
 #include <initializer_list>
 
 #include <cstring>
@@ -313,26 +314,23 @@ public:
         return *this;
     }
 
+    template<typename InputIterator>
+    Array(InputIterator first, InputIterator last) { pushBack(first, last); }
     Array(const T& data, SizeType count) {
-        insert(firstConstIter(), data, count);
+        (void)insert(firstConstIter(), data, count);
     }
     Array(std::initializer_list<const T> data) {
-        pushBack(data);
-    }
-    Array(std::span<const T> data) {
-        pushBack(data);
+        pushBack(data.begin(), data.end());
     }
     ~Array() { clear(); }
 
     FORCE_INLINE void pushBack(std::initializer_list<const T> data) {
-        pushBack(std::span<const T>{data});
+        pushBack(data.begin(), data.end());
     }
 
-    void pushBack(std::span<const T> data) {
-        ASSERTION(size() + data.size() <= capacity(), std::runtime_error, "used up all the memory")
-        for (auto i = 0; i < data.size(); ++i) {
-            (void)insertBackElement(data[i]);
-        }
+    template<typename InputIterator>
+    void pushBack(InputIterator first, InputIterator last) {
+        (void)insert(endConstIter(), first, last);
     }
 
     void pushBack(const T& data) {
@@ -356,6 +354,19 @@ public:
         ASSERTION(!pos.isExpired(), std::runtime_error, "Using expired iterator for emplace")
         ASSERTION(size() + 1 <= capacity(), std::runtime_error, "used up all the memory")
         return emplaceElement(iterToIndex(pos), std::forward<Arg>(arg) ... );
+    }
+
+    template<typename InputIterator>
+    Iterator insert(ConstIterator pos, InputIterator first, InputIterator last) {
+        static_assert(iter::isInputIterator<InputIterator>);
+        ASSERTION(!pos.isExpired(), std::runtime_error, "Using expired iterator for emplace")
+        ASSERTION(size() + iter::Distance(first, last) <= capacity(), std::runtime_error, "used up all the memory")
+        auto start = iterToIndex(pos);
+        auto i = 0;
+        for (auto it = first; it != last; ++it, ++i) {
+            (void)insertElement(start + i, *it);
+        }
+        return indexToIter(start);
     }
 
     Iterator insert(ConstIterator pos, const T& data) {
@@ -382,16 +393,7 @@ public:
         return indexToIter(start);
     }
     FORCE_INLINE Iterator insert(ConstIterator pos, std::initializer_list<const T> data) {
-        return insert(pos, std::span<const T>{data});
-    }
-    Iterator insert(ConstIterator pos, std::span<const T> data) {
-        ASSERTION(!pos.isExpired(), std::runtime_error, "Using expired iterator for emplace")
-        ASSERTION(size() + data.size() <= capacity(), std::runtime_error, "used up all the memory")
-        auto start = iterToIndex(pos);
-        for (auto i = 0; i < data.size(); ++i) {
-            (void)insertElement(start + i, data[i]);
-        }
-        return indexToIter(start);
+        return insert(pos, data.begin(), data.end());
     }
 
     void popBack() {

@@ -18,43 +18,43 @@ namespace atom::utils {
 * @example:
 * {     // Start scoped
 *       auto sockfd = socket(...);
-*       ScopedLock raii([sockfd] { close(sockfd); });
+*       ScopedGuard raii([sockfd] { close(sockfd); });
 *       if (...) {
 *           // do smth1
 *       } else if (...) {
 *           // do smth2
-*           raii.unlock();
+*           raii.cancel();
 *       } ...
 *
 * }     // End scoped (will call [sockfd] { close(sockfd); } if raii has not unlcoked yet)
 */
 template<typename T>
-class ScopedLock final {
+class ScopedGuard final {
 public:
     static_assert(std::is_invocable_v<T>, "Attempt to construct ScopeLock with invocable type T");
     using UnlockFunctorType = T;
 
     template<typename C, typename D = std::enable_if_t<std::is_invocable_v<C>, int>>
-    explicit ScopedLock(C lockCallback, T unlockCallback);
-    explicit ScopedLock(T unlockCallback);
-    ~ScopedLock();
+    explicit ScopedGuard(C lockCallback, T unlockCallback);
+    explicit ScopedGuard(T unlockCallback);
+    ~ScopedGuard();
 
     void cancel();
     void unlock();
     operator bool() const;
     bool wasUnlocked() const;
 
-    ScopedLock(const ScopedLock&) = delete;
-    ScopedLock(ScopedLock&&) = delete;
-    ScopedLock& operator=(const ScopedLock&) = delete;
-    ScopedLock& operator=(ScopedLock&&) = delete;
+    ScopedGuard(const ScopedGuard&) = delete;
+    ScopedGuard(ScopedGuard&&) = delete;
+    ScopedGuard& operator=(const ScopedGuard&) = delete;
+    ScopedGuard& operator=(ScopedGuard&&) = delete;
 
 private:
     std::optional<UnlockFunctorType> m_unlockCallback;
 };
 
 template<typename T>
-inline ScopedLock<T>::ScopedLock(T unlockCallback) :
+inline ScopedGuard<T>::ScopedGuard(T unlockCallback) :
     m_unlockCallback(std::move(unlockCallback))
 {
     static_assert(std::is_invocable_v<T>);
@@ -62,7 +62,7 @@ inline ScopedLock<T>::ScopedLock(T unlockCallback) :
 
 template<typename T>
 template<typename C, typename D>
-inline ScopedLock<T>::ScopedLock(C lockCallback, T unlockCallback) :
+inline ScopedGuard<T>::ScopedGuard(C lockCallback, T unlockCallback) :
     m_unlockCallback(std::move(unlockCallback))
 {
     static_assert(std::is_invocable_v<C> && std::is_invocable_v<T>);
@@ -70,13 +70,13 @@ inline ScopedLock<T>::ScopedLock(C lockCallback, T unlockCallback) :
 }
 
 template<typename T>
-inline ScopedLock<T>::~ScopedLock()
+inline ScopedGuard<T>::~ScopedGuard()
 {
     unlock();
 }
 
 template<typename T>
-inline void ScopedLock<T>::unlock()
+inline void ScopedGuard<T>::unlock()
 {
     if (!wasUnlocked()) {
         m_unlockCallback->operator()();
@@ -85,19 +85,19 @@ inline void ScopedLock<T>::unlock()
 }
 
 template<typename T>
-inline void ScopedLock<T>::cancel()
+inline void ScopedGuard<T>::cancel()
 {
     m_unlockCallback.reset();
 }
 
 template<typename T>
-inline ScopedLock<T>::operator bool() const
+inline ScopedGuard<T>::operator bool() const
 {
     return !wasUnlocked();
 }
 
 template<typename T>
-inline bool ScopedLock<T>::wasUnlocked() const
+inline bool ScopedGuard<T>::wasUnlocked() const
 {
     return !m_unlockCallback.has_value();
 }

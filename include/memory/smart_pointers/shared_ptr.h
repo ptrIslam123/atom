@@ -906,7 +906,7 @@ public:
                 allocator.destruct(controlBlock);
             }
             if (controlBlockStart) {
-                allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock));
+                allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock), sizeof(controlBlock));
             }
             throw;
         }
@@ -939,7 +939,7 @@ public:
                     _allocator.destruct(controlBlock);
                 }
                 if (controlBlockStart) {
-                    _allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock));
+                    _allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock), sizeof(controlBlock));
                 }
             });
             throw;
@@ -955,13 +955,13 @@ public:
         if constexpr (std::is_same_v<AllocatorType, allocator::DefaultAllocator>) {
             AllocatorType allocator;
             allocator.destruct(controlBlock);
-            allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock));
+            allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock), sizeof(NonAtomicControlBlock));
         } else {
             utils::bc::Reference<AllocatorType> allocator{controlBlock->m_allocator};
             ASSERTION(allocator.isValid(), std::runtime_error, "Attempt to use invalid reference to castom allocator")
             allocator.accessMutable([&controlBlock](AllocatorType& _allocator) {
                 _allocator.destruct(controlBlock);
-                _allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock));
+                _allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock), sizeof(controlBlock));
             });
         }
     }

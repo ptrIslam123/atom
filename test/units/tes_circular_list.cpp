@@ -1,11 +1,16 @@
 #include <gtest/gtest.h>
 
-#include "include/containers/dynamic/list.h"
-#include "include/iterator/iterator_traits.h"
+#include "include/containers/dynamic/circular_list.h"
+#include "include/memory/allocators/default_allocator.h"
 #include "include/iterator/iterator.h"
+
+#include <stdexcept>
 
 using namespace atom::containers::dynamic;
 using namespace atom::iter;
+
+template<class T, class A = atom::memory::allocator::DefaultAllocator>
+using List = CircularList<T, A>;
 
 namespace {
 
@@ -40,7 +45,7 @@ struct TestAllocator {
 
 } //! namespace
 
-TEST(TestList, TestIteratorTraits) {
+TEST(TestCircularList, TestIteratorTraits) {
     using Iterator = typename List<int>::Iterator;
     using ReverseIterator = typename List<int>::ReverseIterator;
     EXPECT_TRUE(atom::iter::isBidirectionalIterator<Iterator>);
@@ -61,7 +66,7 @@ TEST(TestList, TestIteratorTraits) {
     EXPECT_EQ(*it, int{1});
 }
 
-TEST(TestList, TestWithInvalidIterators) {
+TEST(TestCircularList, TestWithInvalidIterators) {
     List<int> list{1, 2, 3};
 
     EXPECT_ANY_THROW(*list.endIter());
@@ -71,10 +76,12 @@ TEST(TestList, TestWithInvalidIterators) {
 
     auto it = list.endConstIter();
     EXPECT_NO_THROW(++it);
-    // deref it is UB(impl details)
+    EXPECT_EQ(it, list.firstConstIter());
+    EXPECT_NO_THROW(atom::iter::Advance(it, 2));
+    EXPECT_EQ(*it, int{3});
 }
 
-TEST(TestList, TestReverseIteratorBasicOperations) {
+TEST(TestCircularList, TestReverseIteratorBasicOperations) {
     List<int> list;
     list.pushBack(1);
     list.pushBack(2);
@@ -99,7 +106,7 @@ TEST(TestList, TestReverseIteratorBasicOperations) {
     EXPECT_EQ(rit, list.endReverseIter());
 }
 
-TEST(TestList, TestReverseIteratorTraversal) {
+TEST(TestCircularList, TestReverseIteratorTraversal) {
     List<int> list;
     list.pushBack(10);
     list.pushBack(20);
@@ -119,7 +126,7 @@ TEST(TestList, TestReverseIteratorTraversal) {
     EXPECT_EQ(rit, list.endReverseIter());
 }
 
-TEST(TestList, TestReverseConstIterator) {
+TEST(TestCircularList, TestReverseConstIterator) {
     List<int> list;
     list.pushBack(5);
     list.pushBack(6);
@@ -137,7 +144,7 @@ TEST(TestList, TestReverseConstIterator) {
     EXPECT_EQ(crit, const_list.endReverseConstIter());
 }
 
-TEST(TestList, TestIteratorBasicOperations) {
+TEST(TestCircularList, TestIteratorBasicOperations) {
     List<int> list;
     list.pushBack(1);
     list.pushBack(2);
@@ -162,7 +169,7 @@ TEST(TestList, TestIteratorBasicOperations) {
     EXPECT_EQ(it, list.endIter());
 }
 
-TEST(TestList, TestIteratorTraversal) {
+TEST(TestCircularList, TestIteratorTraversal) {
     List<int> list;
     list.pushBack(10);
     list.pushBack(20);
@@ -188,7 +195,7 @@ TEST(TestList, TestIteratorTraversal) {
     EXPECT_EQ(it.operator->(), &(*it));
 }
 
-TEST(TestList, TestIteratorEquality) {
+TEST(TestCircularList, TestIteratorEquality) {
     List<int> list;
     list.pushBack(1);
     list.pushBack(2);
@@ -205,7 +212,7 @@ TEST(TestList, TestIteratorEquality) {
     EXPECT_EQ(end1, end2);
 }
 
-TEST(TestList, TestIteratorOnEmptyList) {
+TEST(TestCircularList, TestIteratorOnEmptyList) {
     List<int> list;
 
     EXPECT_EQ(list.firstIter(), list.endIter());
@@ -215,7 +222,7 @@ TEST(TestList, TestIteratorOnEmptyList) {
     auto cit = list.firstIter();
 }
 
-TEST(TestList, TestSaveContainerInvariantsWithException) {
+TEST(TestCircularList, TestSaveContainerInvariantsWithException) {
     struct Foo {
         Foo() {
             static int counter{0};
@@ -237,7 +244,38 @@ TEST(TestList, TestSaveContainerInvariantsWithException) {
     }
 }
 
-TEST(TestList, TestWithException) {
+//TEST(TestCircularList, TestEdgeCases) {
+//    {
+//        List<int> emptyList;
+//        EXPECT_ANY_THROW(emptyList.popFront());
+//        EXPECT_ANY_THROW(emptyList.popBack());
+//    }
+//    {
+//        List<int> emptyList;
+//        EXPECT_ANY_THROW(emptyList.firstElement());
+//        EXPECT_ANY_THROW(emptyList.lastElement());
+//    }
+//}
+
+TEST(TestCircularList, TestCircularBehavior) {
+    List<int> list;
+    list.pushBack(1);
+    list.pushBack(2);
+    list.pushBack(3);
+
+    auto it = list.firstIter();
+    EXPECT_EQ(*it, 1);
+    ++it;
+    EXPECT_EQ(*it, 2);
+    ++it;
+    EXPECT_EQ(*it, 3);
+    ++it;
+    EXPECT_EQ(it, list.endIter());
+    ++it;
+    EXPECT_EQ(*it, 1);
+}
+
+TEST(TestCircularList, TestWithException) {
     static int counter{0};
     struct Foo {
         Foo() {
@@ -279,7 +317,7 @@ TEST(TestList, TestWithException) {
     }
 }
 
-TEST(TestList, TestMemoryLeaks) {
+TEST(TestCircularList, TestMemoryLeaks) {
     static int counter{0};
     struct Foo {
         Foo() { ++counter; }
@@ -296,7 +334,7 @@ TEST(TestList, TestMemoryLeaks) {
     EXPECT_EQ(counter, 0);
 }
 
-TEST(TestList, TestMoveOperations) {
+TEST(TestCircularList, TestMoveOperations) {
     // Test move constructor
     {
         List<int> list1{1, 2, 3};
@@ -322,7 +360,7 @@ TEST(TestList, TestMoveOperations) {
     }
 }
 
-TEST(TestList, TestCopyOperations) {
+TEST(TestCircularList, TestCopyOperations) {
     // Test copy constructor
     {
         List<int> list1{1, 2, 3};
@@ -354,7 +392,7 @@ TEST(TestList, TestCopyOperations) {
     }
 }
 
-TEST(TestList, TestConstructors) {
+TEST(TestCircularList, TestConstructors) {
     {
         List<int> list;
         EXPECT_TRUE(list.isEmpty());
@@ -378,7 +416,7 @@ TEST(TestList, TestConstructors) {
     }
 }
 
-TEST(TestList, TestDestructor) {
+TEST(TestCircularList, TestDestructor) {
     static int counter{0};
     struct Foo {
         Foo() { ++counter; }
@@ -396,7 +434,7 @@ TEST(TestList, TestDestructor) {
     EXPECT_EQ(counter, 0);
 }
 
-TEST(TestList, TestEraseRange) {
+TEST(TestCircularList, TestEraseRange) {
     // Test erase range from the begin
     {
         List<int> list;
@@ -480,7 +518,7 @@ TEST(TestList, TestEraseRange) {
     }
 }
 
-TEST(TestList, TestErase) {
+TEST(TestCircularList, TestErase) {
     // Test erase from the begin
     {
         List<int> list;
@@ -535,7 +573,7 @@ TEST(TestList, TestErase) {
     }
 }
 
-TEST(TestList, TestPopOperations) {
+TEST(TestCircularList, TestPopOperations) {
     // Test popFront
     {
         List<int> list;
@@ -578,7 +616,7 @@ TEST(TestList, TestPopOperations) {
     }
 }
 
-TEST(TestList, TestEmplace) {
+TEST(TestCircularList, TestEmplace) {
     struct Foo {
         explicit Foo(int _iv, char _bv): iv(_iv), bv(_bv) {}
         int iv{};
@@ -614,7 +652,7 @@ TEST(TestList, TestEmplace) {
     EXPECT_EQ(it, list.endConstIter());
 }
 
-TEST(TestList, TestInsertRange) {
+TEST(TestCircularList, TestInsertRange) {
     {
         List<int> list{1, 2, 7, 8};
         EXPECT_EQ(list.size(), 4);
@@ -683,7 +721,7 @@ TEST(TestList, TestInsertRange) {
     }
 }
 
-TEST(TestList, TestPushFrontRange) {
+TEST(TestCircularList, TestPushFrontRange) {
     {
         List<int> list;
         list.pushBack(0);
@@ -721,7 +759,7 @@ TEST(TestList, TestPushFrontRange) {
     }
 }
 
-TEST(TestList, TestPushBackRange) {
+TEST(TestCircularList, TestPushBackRange) {
     {
         List<int> list;
         EXPECT_TRUE(list.isEmpty());
@@ -784,7 +822,7 @@ TEST(TestList, TestPushBackRange) {
     }
 }
 
-TEST(TestList, TestInsert) {
+TEST(TestCircularList, TestInsert) {
     // Check insert into the end
     {
         List<int> list;

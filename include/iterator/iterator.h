@@ -166,7 +166,7 @@ constexpr void Advance(Iterator& it, Distance distance) {
             --distance;
         }
     } else {
-        static_assert(isUnknownIterator<Iterator> && "Unknown iterator category");
+        static_assert(!isUnknownIterator<Iterator> && "Unknown iterator category");
     }
 }
 

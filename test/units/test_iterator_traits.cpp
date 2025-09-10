@@ -1,17 +1,16 @@
 #include <gtest/gtest.h>
 
 #include "include/iterator/iterator_traits.h"
-#include "include/containers/fixed/array.h"
-#include <type_traits>
 
-using namespace atom::containers::fixed;
+#include <type_traits>
+#include <initializer_list>
+
 using namespace atom::iter;
 
-TEST(TestIteratorTraits, TestFixedArrayIters) {
-    using Iterator = typename Array<int, 64>::Iterator;
-    using ReverseIterator = typename Array<int, 64>::ReverseIterator;
+TEST(TestIteratorTraits, TestInitializedListIt) {
+    using Iterator = typename std::initializer_list<int>::iterator;
+    EXPECT_TRUE(isInputIterator<Iterator>);
     EXPECT_TRUE(isRandomAccessIterator<Iterator>);
-    EXPECT_TRUE(isRandomAccessIterator<ReverseIterator>);
 }
 
 using value_type = int; // just for example

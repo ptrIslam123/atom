@@ -356,12 +356,12 @@ void UniquePtr<T, A>::clear() {
         if constexpr (std::is_same_v<AllocatorType, allocator::DefaultAllocator>) {
             AllocatorType allocator;
             allocator.destruct(m_ptr);
-            allocator.deallocate(reinterpret_cast<std::byte*>(m_ptr));
+            allocator.deallocate(reinterpret_cast<std::byte*>(m_ptr), sizeof(*m_ptr));
         } else {
             ASSERTION(m_allocator.isValid(), std::runtime_error, "")
             m_allocator.accessMutable([ptr = m_ptr](AllocatorType& _allocator) {
                 _allocator.destruct(ptr);
-                _allocator.deallocate(reinterpret_cast<std::byte*>(ptr));
+                _allocator.deallocate(reinterpret_cast<std::byte*>(ptr), sizeof(*m_ptr));
             });
             m_allocator.invalidate();
         }

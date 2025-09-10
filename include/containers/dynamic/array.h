@@ -87,7 +87,7 @@ private:
             return;
         }
         if constexpr (std::is_same_v<AllocatorType, atom::memory::allocator::DefaultAllocator>) {
-            atom::memory::allocator::DefaultAllocator{}.deallocate(memory);
+            //atom::memory::allocator::DefaultAllocator{}.deallocate(memory);
         } else {
             m_allocator.accessMutable([this, memory](AllocatorType& allocator) {
                 allocator.deallocate(memory);

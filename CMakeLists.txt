@@ -11,6 +11,8 @@ option(ENABLE_ASAN "Build with ASAN" OFF)
 
 find_package(GTest REQUIRED)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread -g")
+
 if(ENABLE_TSAN)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread -g") # enable thread sanitize
 endif()
@@ -105,4 +107,8 @@ if(BUILD_TESTS)
 
     target_builder("unit_tests" "${TEST_SRC}" "" "${TEST_INCLUDE_DIRS}" "${TEST_LIBS};${PROJECT_NAME}" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "test")
 
+    file(GLOB_RECURSE FUNC_TEST_SRC "${CMAKE_SOURCE_DIR}/test/functional/test_intrusive_spsc_ring_queue.cpp")
+    set(FUNC_TEST_LIBS "pthread")
+    set(FUNC_TEST_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}")
+    target_builder("func_test_intrusive_spsc_ring_queue" "${FUNC_TEST_SRC}" "" "${FUNC_TEST_INCLUDE_DIRS}" "${FUNC_TEST_LIBS};${PROJECT_NAME}" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}" "test")
 endif()

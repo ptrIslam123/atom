@@ -1,9 +1,32 @@
 #include <gtest/gtest.h>
 
 #include "include/containers/fixed/array.h"
+#include "include/iterator/iterator_traits.h"
+#include "include/iterator/iterator.h"
 
 template<class T, std::size_t N>
 using ArrayType = atom::containers::fixed::Array<T, N>;
+
+TEST(TestStaticArray, TestIteratorTraits) {
+    using Iterator = typename ArrayType<int, 64>::Iterator;
+    using ReverseIterator = typename ArrayType<int, 64>::ReverseIterator;
+    EXPECT_TRUE(atom::iter::isRandomAccessIterator<Iterator>);
+    EXPECT_TRUE(atom::iter::isRandomAccessIterator<ReverseIterator>);
+
+    ArrayType<int, 65> array{1, 2, 3, 4, 5, 6, 7, 8};
+    EXPECT_EQ(array.size(), 8);
+    EXPECT_EQ(atom::iter::Distance(array.firstConstIter(), array.endConstIter()), array.size());
+
+    auto it = array.firstIter();
+    atom::iter::Advance(it, 3);
+    EXPECT_EQ(*it, int{4});
+
+    it = atom::iter::Next(it);
+    EXPECT_EQ(*it, int{5});
+
+    it = atom::iter::Prev(it, 4);
+    EXPECT_EQ(*it, int{1});
+}
 
 TEST(TestStaticArray, TestIteratorsWithEmptyArray) {
     ArrayType<int, 5> array;
@@ -329,7 +352,7 @@ TEST(TestStaticArray, TestInsert) {
         array.pushBack(int{2});
         array.pushBack(int{5});
         array.pushBack(int{6});
-        array.insert(array.firstConstIter() + 2, data);
+        array.insert(array.firstConstIter() + 2, data.begin(), data.end());
         ASSERT_EQ(array.size(), 6);
         for (auto i = 0; i < array.size(); ++i) {
             EXPECT_EQ(array.atUnsafe(i), (i + 1));
@@ -357,7 +380,7 @@ TEST(TestStaticArray, TestInsert) {
     {
         constexpr std::array<int, 5> data = {0, 1, 2, 3, 4};
         array.clear();
-        array.pushBack(data);
+        array.pushBack(data.begin(), data.end());
         ASSERT_EQ(array.size(), data.size());
         auto i = 0;
         for (auto it = array.firstConstIter(); it != array.endConstIter(); ++it, ++i) {
@@ -378,7 +401,8 @@ TEST(TestStaticArray, TestInsert) {
         EXPECT_EQ(*it, 0);
 
         // insert into the begin
-        it = array.insert(it, {{int{6}, int{7}}});
+        constexpr std::array insertData = {int{6}, int{7}};
+        it = array.insert(it, insertData.begin(), insertData.end());
         EXPECT_EQ(array.size(), data.size() + 3);
         EXPECT_TRUE(!it.isExpired() && !it.isOutOfRange());
         EXPECT_EQ(*it, int{6});
@@ -469,7 +493,7 @@ TEST(TestStaticArray, TestInsertNonTrivialTypes) {
         array.emplaceBack(6);
 
         std::array<Foo, 3> data = {Foo(1), Foo(2), Foo(3)};
-        auto it = array.insert(array.firstConstIter(), {data.begin(), data.end()});
+        auto it = array.insert(array.firstConstIter(), data.begin(), data.end());
 
         EXPECT_EQ(array.size(), 6);
         EXPECT_EQ(it->value, 1);
@@ -490,7 +514,7 @@ TEST(TestStaticArray, TestInsertNonTrivialTypes) {
 
         std::array<Foo, 3> data = {Foo(2), Foo(3), Foo(4)};
         auto middle_it = array.firstConstIter() + 1;
-        auto it = array.insert(middle_it, {data.begin(), data.end()});
+        auto it = array.insert(middle_it, data.begin(), data.end());
 
         EXPECT_EQ(array.size(), 6);
         EXPECT_EQ(it->value, 2);
@@ -509,7 +533,7 @@ TEST(TestStaticArray, TestInsertNonTrivialTypes) {
         array.emplaceBack(2);
 
         std::array<Foo, 2> data = {Foo(3), Foo(4)};
-        auto it = array.insert(array.endConstIter(), {data.begin(), data.end()});
+        auto it = array.insert(array.endConstIter(), data.begin(), data.end());
 
         EXPECT_EQ(array.size(), 4);
         EXPECT_EQ(it->value, 3);
@@ -721,7 +745,7 @@ TEST(TestStaticArray, TestInsertOnlyCopyableNonTrivialTypes) {
         array.emplaceBack(6);
 
         std::array<Foo, 3> data = {Foo(1), Foo(2), Foo(3)};
-        auto it = array.insert(array.firstConstIter(), {data.begin(), data.end()});
+        auto it = array.insert(array.firstConstIter(), data.begin(), data.end());
 
         EXPECT_EQ(array.size(), 6);
         EXPECT_EQ(it->value, 1);
@@ -742,7 +766,7 @@ TEST(TestStaticArray, TestInsertOnlyCopyableNonTrivialTypes) {
 
         std::array<Foo, 3> data = {Foo(2), Foo(3), Foo(4)};
         auto middle_it = array.firstConstIter() + 1;
-        auto it = array.insert(middle_it, {data.begin(), data.end()});
+        auto it = array.insert(middle_it, data.begin(), data.end());
 
         EXPECT_EQ(array.size(), 6);
         EXPECT_EQ(it->value, 2);
@@ -761,7 +785,7 @@ TEST(TestStaticArray, TestInsertOnlyCopyableNonTrivialTypes) {
         array.emplaceBack(2);
 
         std::array<Foo, 2> data = {Foo(3), Foo(4)};
-        auto it = array.insert(array.endConstIter(), {data.begin(), data.end()});
+        auto it = array.insert(array.endConstIter(), data.begin(), data.end());
 
         EXPECT_EQ(array.size(), 4);
         EXPECT_EQ(it->value, 3);
@@ -787,7 +811,7 @@ TEST(TestStaticArray, TestErase) {
     constexpr std::array<int, 5> initialData = {10, 20, 30, 40, 50};
     ArrayType<int, 1024> array;
     EXPECT_EQ(array.capacity(), 1024);
-    array.pushBack(initialData);
+    array.pushBack(initialData.data(), initialData.end());
     ASSERT_EQ(array.size(), 5);
     for (auto i = 0; i < initialData.size(); ++i) {
         EXPECT_EQ(array.atUnsafe(i), (i + 1) * 10);
@@ -867,8 +891,9 @@ TEST(TestStaticArray, TestErase) {
     }
     // Check erase with invalid iterator
     {
+        constexpr auto data = std::array<int, 3>{10, 20, 30};
         array.clear();
-        array.pushBack(std::array<int, 3>{10, 20, 30});
+        array.pushBack(data.begin(), data.end());
         EXPECT_ANY_THROW(array.erase(array.endConstIter()));
         EXPECT_ANY_THROW(array.erase(array.endConstIter()) + 1);
         auto it = array.firstConstIter();
@@ -879,7 +904,8 @@ TEST(TestStaticArray, TestErase) {
     }
     // Check clear
     {
-        array.pushBack(std::array<int, 5>{10, 20, 30, 40, 50});
+        constexpr auto data = std::array<int, 5>{10, 20, 30, 40, 50};
+        array.pushBack(data.begin(), data.end());
         array.clear();
         EXPECT_TRUE(array.isEmpty());
         EXPECT_EQ(array.size(), 0);
@@ -888,7 +914,7 @@ TEST(TestStaticArray, TestErase) {
     {
         constexpr std::array<int, 7> data = {10, 20, 30, 40, 50, 60, 70};
         array.clear();
-        array.pushBack(data);
+        array.pushBack(data.begin(), data.end());
 
         auto it = array.firstIter();
         EXPECT_TRUE(!it.isExpired() && !it.isOutOfRange());
@@ -1590,8 +1616,9 @@ TEST(TestStaticArray, TestIterators) {
     }
     // for-each
     {
+        constexpr auto data = std::array<int, 5>{0, 1, 2, 3, 4};
         array.clear();
-        array.pushBack(std::array<int, 5>{0, 1, 2, 3, 4});
+        array.pushBack(data.begin(), data.end());
         EXPECT_EQ(array.size(), 5);
         int i = 0;
         for (auto it = array.firstConstIter(); it < array.endConstIter(); ++it) {
@@ -1617,7 +1644,7 @@ TEST(TestStaticArray, TestIteratorArithmetic) {
 TEST(TestStaticArray, TestReverseIterators) {
     {
         constexpr std::array<int, 5> data = {10, 20, 30, 40, 50};
-        ArrayType<int, 1024> array{data};
+        ArrayType<int, 1024> array{data.begin(), data.end()};
         auto rFirstIt = array.firstReverseIter();
         auto rLastIt = array.lastReverseIter();
         EXPECT_EQ(*rFirstIt, 50);

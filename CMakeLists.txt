@@ -11,7 +11,7 @@ option(ENABLE_ASAN "Build with ASAN" OFF)
 
 find_package(GTest REQUIRED)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread -g")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread -g")
 
 if(ENABLE_TSAN)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread -g") # enable thread sanitize

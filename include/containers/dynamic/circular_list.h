@@ -38,6 +38,8 @@ public:
     using SizeType = std::size_t;
     using AllocatorType = A;
 
+    class ConstIterator;
+
     class Iterator final {
     public:
         Iterator(const Iterator& other) noexcept = default;
@@ -98,6 +100,14 @@ public:
         bool operator!=(const Iterator& other) const noexcept {
             return m_node != other.m_node;
         }
+
+        bool operator==(const ConstIterator& other) const noexcept {
+           return m_node == other.m_node;
+       }
+
+       bool operator!=(const ConstIterator& other) const noexcept {
+           return m_node != other.m_node;
+       }
 
     private:
         friend CircularList;

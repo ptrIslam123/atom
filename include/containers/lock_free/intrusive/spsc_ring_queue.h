@@ -36,6 +36,7 @@ public:
 
     bool tryDequeue(T** ptr) noexcept;
     bool tryDequeueBulk(T** ptr, std::size_t count, std::size_t& available) noexcept;
+    bool tryDequeueBulk(T** ptr, std::size_t count) noexcept;
     std::size_t dequeueBurst(T** ptr, std::size_t count, std::size_t& available) noexcept;
 
     constexpr SizeType size() const noexcept;
@@ -220,6 +221,12 @@ bool IntrusiveRingQueue<T, N>::tryDequeueBulk(T** ptr, std::size_t count, std::s
     }
 
     return false;
+}
+
+template<typename T, std::size_t N>
+bool IntrusiveRingQueue<T, N>::tryDequeueBulk(T** ptr, std::size_t count) noexcept {
+    [[maybe_unused]] std::size_t available{0};
+    return tryDequeueBulk(ptr, count, available);
 }
 
 template<typename T, std::size_t N>

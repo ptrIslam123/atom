@@ -14,6 +14,8 @@
 #include <sstream>
 #include <random>
 #include <algorithm>
+#include <thread>
+#include <sstream>
 
 #include <cstring>
 #include <ctime>
@@ -23,10 +25,10 @@ using namespace atom::containers::lock_free::spsc;
 
 class ExchangeData {
 public:
-    static ExchangeData Gen(const std::thread::id& tid) {
+    static ExchangeData Gen() {
         static std::atomic<std::size_t> staticOrderIndex{1};
         ExchangeData data;
-        data.tid = tid;
+        data.tid = std::this_thread::get_id();
         data.orderIndex = staticOrderIndex.fetch_add(1);
 
         std::ostringstream oss;
@@ -78,53 +80,105 @@ private:
     std::thread::id tid{};
 };
 
-constexpr auto OPERATIONS{1024 * 64};
-
-std::atomic<std::size_t> enqueued{0};
-std::atomic<std::size_t> dequeued{0};
-
-std::shared_ptr<IntrusiveRingQueue<ExchangeData, OPERATIONS * 2>> Queue;
-
-void ProducerJob() {
-    std::array<ExchangeData, OPERATIONS> buffer;
-    for (auto i = 0; i < OPERATIONS; ++i) {
-        buffer[i] = ExchangeData::Gen(std::this_thread::get_id());
-        const auto result = Queue->tryEnqueue(&buffer[i]);
-        ASSERTION(result, std::runtime_error, "Could not enqueue")
-        enqueued.fetch_add(1);
-    }
-
-    std::cout << "Producer finished job! (enqueued=" << enqueued.load() << " data)" << std::endl;
-}
-
-void ConsumerJob() {
-    for (auto i = 0; i < OPERATIONS; ++i) {
-        ExchangeData* data{nullptr};
-        while (Queue->empty()) {
-            std::this_thread::yield();
-        }
-        const auto result = Queue->tryDequeue(&data);
-        ASSERTION(result, std::runtime_error, "Could not dequeue")
-        ASSERTION(data, std::runtime_error, "Dequeue invalid pointer")
-        ASSERTION(ExchangeData::CheckSum(*data), std::runtime_error, "Incorrect check sum")
-        dequeued.fetch_add(1);
-    }
-
-    std::cout << "Consumer finished job! (dequeued=" << dequeued.load() << " data)" << std::endl;
-}
 
 void TestEnqueueAndDequeue() {
+    constexpr auto OPERATIONS{1024 * 64};
 
-}
+    std::atomic<std::size_t> enqueued{0};
+    std::atomic<std::size_t> dequeued{0};
 
-int main() {
-    Queue = std::make_shared<IntrusiveRingQueue<ExchangeData, OPERATIONS * 2>>();
-    std::thread producer{[] { ProducerJob(); }};
-    std::thread consumer{[] { ConsumerJob(); }};
+    auto queue = std::make_shared<IntrusiveRingQueue<ExchangeData, OPERATIONS * 2>>();
+
+    auto ConsumerJob = [&queue, &enqueued, &dequeued] {
+        for (auto i = 0; i < OPERATIONS; ++i) {
+            ExchangeData* data{nullptr};
+            while (queue->empty()) {
+                std::this_thread::yield();
+            }
+            const auto result = queue->tryDequeue(&data);
+            ASSERTION(result, std::runtime_error, "Could not dequeue")
+            ASSERTION(data, std::runtime_error, "Dequeue invalid pointer")
+            ASSERTION(ExchangeData::CheckSum(*data), std::runtime_error, "Incorrect check sum")
+            dequeued.fetch_add(1);
+        }
+
+        std::cout << "Consumer finished job! (dequeued=" << dequeued.load() << " data)" << std::endl;
+    };
+
+    auto ProducerJob = [&queue, &enqueued, &dequeued] {
+        std::array<ExchangeData, OPERATIONS> buffer;
+        for (auto i = 0; i < OPERATIONS; ++i) {
+            buffer[i] = ExchangeData::Gen();
+            const auto result = queue->tryEnqueue(&buffer[i]);
+            ASSERTION(result, std::runtime_error, "Could not enqueue")
+            enqueued.fetch_add(1);
+        }
+
+        std::cout << "Producer finished job! (enqueued=" << enqueued.load() << " data)" << std::endl;
+    };
+
+    std::thread producer{ProducerJob};
+    std::thread consumer{ConsumerJob};
 
     producer.join();
     consumer.join();
 
     ASSERTION(enqueued.load() == dequeued.load(), std::runtime_error, "Incorrent counters: enqueued != dequeued")
+}
+
+void TestEnqueueAndDequeueBulk() {
+    constexpr auto OPERATIONS{1024 * 64};
+    constexpr auto BULK_SIZE{OPERATIONS / 1024};
+    std::atomic<std::size_t> enqueued{0};
+    std::atomic<std::size_t> dequeued{0};
+
+    auto queue = std::make_shared<IntrusiveRingQueue<ExchangeData, OPERATIONS * 2>>();
+
+    auto ProducerJob = [&queue, &enqueued] {
+        std::array<ExchangeData, OPERATIONS> data;
+        for (auto i = 0; i < OPERATIONS; ++i) {
+            data[i] = ExchangeData::Gen();
+        }
+
+        for (auto i = 0; i < OPERATIONS; ) {
+            if (queue->tryEnqueueBulk(data.data() + i, BULK_SIZE)) {
+                i += BULK_SIZE;
+                enqueued.fetch_add(BULK_SIZE);
+            } else {
+                std::this_thread::yield();
+            }
+        }
+        std::cout << "Producer finished job! (enqueued=" << enqueued.load() << " data)" << std::endl;
+    };
+
+    auto ConsumerJob = [&queue, &dequeued] {
+        while (dequeued.load() < OPERATIONS) {
+            std::array<ExchangeData*, BULK_SIZE> bulk{nullptr};
+            if (queue->tryDequeueBulk(bulk.data(), bulk.size())) {
+                for (auto i = 0; i < bulk.size(); ++i) {
+                    ASSERTION(bulk[i], std::runtime_error, "Invalid dequeue data")
+                    ExchangeData& data{*bulk[i]};
+                    ASSERTION(ExchangeData::CheckSum(data), std::runtime_error, "Incorrect check sum")
+                    dequeued.fetch_add(bulk.size());
+                }
+            } else {
+                std::this_thread::yield();
+            }
+        }
+        std::cout << "Consumer finished job! (dequeued=" << dequeued.load() << " data)" << std::endl;
+    };
+
+    std::thread producer{ProducerJob};
+    std::thread consumer{ConsumerJob};
+
+    producer.join();
+    consumer.join();
+
+    ASSERTION(enqueued.load() == dequeued.load(), std::runtime_error, "Incorrent counters: enqueued != dequeued")
+}
+
+int main() {
+    TestEnqueueAndDequeue();
+    TestEnqueueAndDequeueBulk();
     return 0;
 }

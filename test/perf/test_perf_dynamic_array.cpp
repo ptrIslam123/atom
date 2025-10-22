@@ -146,8 +146,3 @@ void TestPushBackAmortization() {
     std::cout << std::endl;
 }
 
-int main() {
-    //TestPushBackAmortization<StdVector>();
-    TestPushBackAmortization<AtomVector>();
-    return 0;
-}

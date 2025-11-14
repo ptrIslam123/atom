@@ -12,7 +12,7 @@
 using namespace atom::containers::lock_free::spsc;
 
 TEST(TestSPSCRingQueue, TestTryEnqueueAndTryDequeue) {
-    constexpr auto OPERATIONS{1024 * 64};
+    constexpr auto OPERATIONS{1024 * 1024};
 
     std::atomic<std::size_t> enqueued{0};
     std::atomic<std::size_t> dequeued{0};

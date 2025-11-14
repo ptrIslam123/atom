@@ -10,18 +10,10 @@ namespace atom::utils {
 template <typename F>
 inline auto MeasureTimeNanosec(F&& f)
 {
-    auto get_current_time_in_ns = [] {
-        struct timespec time {};
-        clock_gettime(CLOCK_MONOTONIC, &time);
-        return time.tv_sec * 1'000'000'000 + time.tv_nsec;
-    };
-
-    const auto start_time = get_current_time_in_ns();
+    const auto start_time = std::chrono::high_resolution_clock::now();
     std::invoke(std::forward<F>(f));
-    const auto end_time = get_current_time_in_ns();
+    const auto end_time = std::chrono::high_resolution_clock::now();
     const auto diff = end_time - start_time;
-    assert(diff > 0);
-    std::chrono::microseconds{0};
     return diff;
 }
 

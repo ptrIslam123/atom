@@ -4,7 +4,6 @@
 #if defined(__linux__)
 
 #include <chrono>
-#include <atomic>
 #include <cstdint>
 #include <cstddef>
 
@@ -28,13 +27,18 @@
  */
 namespace atom::platform::posix {
 
+enum class FutexStatus {
+    ByWakeUp,
+    ByTimeout
+};
+
 /**
  * @brief Wakes up exactly one thread/process waiting on the futex address
  *
  * @param futexAddr The atomic variable used as futex word
  * @throws std::runtime_error if wait fails
  */
-void FutexWakeUpAny(std::atomic<std::uint32_t>& futexAddr);
+void FutexWakeUpAny(std::uint32_t& futexAddr);
 
 /**
  * @brief Wakes up @wakeUpCount thread/process waiting on the futex address
@@ -43,21 +47,22 @@ void FutexWakeUpAny(std::atomic<std::uint32_t>& futexAddr);
  * @param wakeUpCount number of wake up threads/processes
  * @throws std::runtime_error if wait fails
  */
-void FutexWakeUp(std::atomic<std::uint32_t>& futexAddr, std::uint32_t wakeUpCount);
+void FutexWakeUp(std::uint32_t& futexAddr, std::uint32_t wakeUpCount);
 
 /**
  * @brief Waits for the futex value to change from expectedVal
  *
- * @param futexAddr The atomic variable to watch
+ * @param futexAddr The variable to watch
  * @param expectedVal The value to compare against
- * @param timeout Absolute timeout (nullptr for infinite wait)
- *
- * @throws std::runtime_error if wait fails (except for timeout)
+ * @param timeout waiting timeout (nullptr for infinite wait)
+ * @return
+ *      ByWakeUp - in case the value of the variable was changed and/or there was a FutexWakeUp*;
+ *      ByTimeout - in case the waiting time has expired
+ * @throws std::runtime_error if wait fails
  *
  * @note Spurious wakeups are possible - always recheck condition
  */
-void FutexWait(std::atomic<std::uint32_t>& futexAddr, std::uint32_t expectedVal);
-void FutexWait(std::atomic<std::uint32_t>& futexAddr, std::uint32_t expectedVal, const struct timespec* timeout);
+FutexStatus FutexWait(std::uint32_t& futexAddr, std::uint32_t expectedVal, struct timespec* timeout = nullptr);
 
 /**
  * @brief Waits with relative timeout duration
@@ -68,24 +73,64 @@ void FutexWait(std::atomic<std::uint32_t>& futexAddr, std::uint32_t expectedVal,
  * @param futexAddr The atomic variable to watch
  * @param expectedVal The value to compare against
  * @param timeout Relative timeout duration
+ * @return
+ *      ByWakeUp - in case the value of the variable was changed and/or there was a FutexWakeUp*;
+ *      ByTimeout - in case the waiting time has expired
  *
  * @throws std::runtime_error if wait fails
+ *
+ * @note Spurious wakeups are possible - always recheck condition
  */
 template<typename Rep, typename Period>
-void FutexWaitFor(std::atomic<std::uint32_t>& futexAddr, std::uint32_t expectedVal, const std::chrono::duration<Rep, Period>& timeout);
+FutexStatus FutexWaitFor(std::uint32_t& futexAddr, std::uint32_t expectedVal, const std::chrono::duration<Rep, Period>& timeout);
+
+/**
+ * @brief Waits with absolute timeout duration
+ *
+ * @tparam Rep Duration representation type
+ * @tparam Period Duration period
+ *
+ * @param futexAddr The atomic variable to watch
+ * @param expectedVal The value to compare against
+ * @param timeout Relative timeout duration
+ * @return
+ *      ByWakeUp - in case the value of the variable was changed and/or there was a FutexWakeUp*;
+ *      ByTimeout - in case the waiting time has expired
+ *
+ * @throws std::runtime_error if wait fails
+ *
+ * @note Spurious wakeups are possible - always recheck condition
+ */
+template<typename Rep, typename Period>
+FutexStatus FutexWaitUntil(std::uint32_t& futexAddr, std::uint32_t expectedVal, const std::chrono::duration<Rep, Period>& absTime);
 
 
 template<typename Rep, typename Period>
-inline void FutexWaitFor(std::atomic<std::uint32_t>& futexAddr, std::uint32_t expectedVal, const std::chrono::duration<Rep, Period>& timeout) {
+inline FutexStatus FutexWaitFor(std::uint32_t& futexAddr, std::uint32_t expectedVal, const std::chrono::duration<Rep, Period>& timeout) {
     using namespace std::chrono;
     auto ns = duration_cast<nanoseconds>(timeout);
+    if (ns.count() <= 0) {
+        return FutexStatus::ByTimeout;
+    }
+
     auto sec = duration_cast<seconds>(ns);
     ns -= sec;
 
     struct timespec ts;
     ts.tv_sec = sec.count();
     ts.tv_nsec = ns.count();
-    FutexWait(futexAddr, expectedVal, &ts);
+    return FutexWait(futexAddr, expectedVal, &ts);
+}
+
+template<typename Rep, typename Period>
+inline FutexStatus FutexWaitUntil(std::uint32_t& futexAddr, std::uint32_t expectedVal, const std::chrono::duration<Rep, Period>& absTime) {
+    using namespace std::chrono;
+    const auto now = steady_clock::now();
+    const auto absSteadyTime = time_point_cast<steady_clock::duration>(absTime);
+    if (now >= absSteadyTime) {
+        return FutexStatus::ByTimeout;
+    }
+    return FutexWaitFor(futexAddr, expectedVal, absSteadyTime - now);
 }
 
 } //! namespace atom::platform::posix

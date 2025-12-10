@@ -33,7 +33,7 @@ struct Foo final {
 } //! namespace
 
 
-using namespace atom::utils;
+using namespace atom::utils::bc;
 
 TEST(TestOwner, TestOwner) {
     Owner<Foo> foo{0, "test"};

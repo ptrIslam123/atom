@@ -7,7 +7,7 @@
 #include <utility>
 #include <atomic>
 
-namespace atom::utils {
+namespace atom::utils::bc {
 
 #ifndef NDEBUG
 
@@ -889,6 +889,6 @@ private:
 
 #endif //! NDEBUG
 
-} //! namespace atom::utils
+} //! namespace atom::utils::bc
 
 #endif //! REF_COUNTER_H

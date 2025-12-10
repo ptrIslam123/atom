@@ -1,7 +1,7 @@
 #ifndef ATOM_LOCK_FREE_STATIC_MEMORY_POOL_H
 #define ATOM_LOCK_FREE_STATIC_MEMORY_POOL_H
 
-#include "include/containers/static/ring_queue.h"
+#include "include/containers/fixed/ring_queue.h"
 #include "include/utils/assertion.h"
 
 #include <type_traits>
@@ -112,7 +112,7 @@ private:
 #endif
     };
 
-    using CachedMemoryBlockStorage = containers::StaticRingQueue<MemoryBlock*, CACHE_SIZE>;
+    using CachedMemoryBlockStorage = containers::fixed::RingQueue<MemoryBlock*, CACHE_SIZE>;
 
     constexpr bool checkBlock(const MemoryBlock* block) const noexcept;
     CachedMemoryBlockStorage& getThreadLocalCachedMemoryBlockStorage() noexcept;

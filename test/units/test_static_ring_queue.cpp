@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 
-#include "include/containers/static/ring_queue.h"
+#include "include/containers/fixed/ring_queue.h"
 
-using namespace atom::containers;
-using RingQueueType = StaticRingQueue<int, 1024>;
+using namespace atom::containers::fixed;
+using RingQueueType = RingQueue<int, 1024>;
 
 TEST(StaticRingQueueTest, InitialState) {
     RingQueueType queue;
@@ -35,7 +35,7 @@ TEST(StaticRingQueueTest, TestEnqueueAndDequeue) {
 }
 
 TEST(StaticRingQueueTest, TestCapacity) {
-    StaticRingQueue<int, 3> queue;
+    RingQueue<int, 3> queue;
     queue.enqueue(int{10});
     EXPECT_EQ(queue.size(), 1);
     EXPECT_EQ(queue.front(), int{10});
@@ -62,14 +62,14 @@ TEST(StaticRingQueueTest, TestCapacity) {
 }
 
 TEST(StaticRingQueueTest, EmptyQueueExceptions) {
-    StaticRingQueue<int, 2> queue;
+    RingQueue<int, 2> queue;
     EXPECT_THROW(queue.front(), std::runtime_error);
     EXPECT_THROW(queue.back(), std::runtime_error);
     EXPECT_THROW(queue.dequeue(), std::runtime_error);
 }
 
 TEST(StaticRingQueueTest, MoveSemantics) {
-    StaticRingQueue<std::unique_ptr<int>, 2> queue;
+    RingQueue<std::unique_ptr<int>, 2> queue;
     auto ptr = std::make_unique<int>(42);
     queue.enqueue(std::move(ptr));
     EXPECT_EQ(ptr, nullptr);
@@ -78,7 +78,7 @@ TEST(StaticRingQueueTest, MoveSemantics) {
 }
 
 TEST(StaticRingQueueTest, ContinuousOverwrite) {
-    StaticRingQueue<int, 3> queue;
+    RingQueue<int, 3> queue;
     for (int i = 0; i < 10; ++i) {
         queue.enqueue(i);
     }
@@ -95,7 +95,7 @@ TEST(StaticRingQueueTest, TestWithNonTrivialType) {
         ~Foo() { --counter; }
         int id;
     };
-    StaticRingQueue<Foo, 3> queue;
+    RingQueue<Foo, 3> queue;
     queue.emplace(int{0});
     EXPECT_EQ(queue.size(), 1);
     EXPECT_EQ(counter, 1);
@@ -107,7 +107,7 @@ TEST(StaticRingQueueTest, TestWithNonTrivialType) {
 
 TEST(StaticRingQueueTest, TestCopyAndMoveQueues) {
     {
-        StaticRingQueue<int, 3> queue1, queue2;
+        RingQueue<int, 3> queue1, queue2;
         queue1.enqueue(int{10});
         queue1.enqueue(int{20});
         EXPECT_EQ(queue1.size(), 2);
@@ -120,7 +120,7 @@ TEST(StaticRingQueueTest, TestCopyAndMoveQueues) {
         EXPECT_EQ(queue2.back(), int{20});
     }
     {
-        StaticRingQueue<std::string, 3> queue1, queue2;
+        RingQueue<std::string, 3> queue1, queue2;
         queue1.enqueue(std::string{"str1"});
         queue1.enqueue(std::string{"str2"});
         EXPECT_EQ(queue1.size(), 2);
@@ -133,7 +133,7 @@ TEST(StaticRingQueueTest, TestCopyAndMoveQueues) {
         EXPECT_EQ(queue2.back(), std::string{"str2"});
     }
     {
-        StaticRingQueue<std::unique_ptr<int>, 3> queue1, queue2;
+        RingQueue<std::unique_ptr<int>, 3> queue1, queue2;
         queue1.enqueue(std::make_unique<int>(int{10}));
         queue1.enqueue(std::make_unique<int>(int{20}));
         EXPECT_EQ(queue1.size(), 2);

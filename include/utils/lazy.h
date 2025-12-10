@@ -8,9 +8,6 @@
 #include <string_view>
 #include <exception>
 #include <typeinfo>
-#include <type_traits>
-#include <new>
-#include <memory>
 #include <cstring>
 #include <cstdint>
 #include <cassert>

@@ -37,7 +37,7 @@
 #define DECLARE_HAS_CLASS_INNER_TYPE(X)                                                 \
     template <typename T, typename = void>                                              \
     struct HAS_CLASS_INNERT_TYPE_##X : std::false_type {};                              \
-    template <typename T##X>                                                            \
+    template <typename T>                                                               \
     struct HAS_CLASS_INNERT_TYPE_##X<T, std::void_t<typename T::X>> : std::true_type {};
 
 #endif //! ATOM_SFINAE_HAS_CLASS_INNER_TYPE_H

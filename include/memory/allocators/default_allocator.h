@@ -18,7 +18,7 @@ namespace atom::memory::allocator {
  * This struct provides methods for allocating, reallocating, and deallocating memory,
  * as well as constructing and destructing objects in the allocated memory.
  */
-struct DefaultAllocator final {
+struct DefaultAllocator {
     /**
      * @brief Allocates a block of memory of the specified size.
      *
@@ -34,12 +34,13 @@ struct DefaultAllocator final {
      *
      * @param start A pointer to the memory block to deallocate.
      *              If the pointer is nullptr, this function does nothing.
+     * @param size The number of allocated bytes.
      *
      * @throws std::bad_alloc If the operation fails.
      *
      * @warning The behavior is undefined if the pointer was not allocated by this allocator.
      */
-    void deallocate(std::byte* start);
+    void deallocate(std::byte* start, std::size_t size);
 
     /**
      * @brief Constructs an object of type T in the allocated memory.
@@ -77,7 +78,7 @@ inline std::byte* DefaultAllocator::allocate(std::size_t size) {
     return ptr;
 }
 
-inline void DefaultAllocator::deallocate(std::byte* start) {
+inline void DefaultAllocator::deallocate(std::byte* start, std::size_t /*size*/) {
     free(static_cast<void*>(start));
 }
 

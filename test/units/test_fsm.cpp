@@ -62,7 +62,7 @@ FSM MakeNumberFSMAnalyzer(
     const State& floatingNumber,
     const State& hexNumber,
     const State& binaryNumber
-    ) {
+) {
     using SymbolType = FSM::SymbolType;
     using StatesType = FSM::StatesType;
     using TransitionTableType = FSM::TransitionTableType;

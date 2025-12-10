@@ -11,7 +11,7 @@ namespace {
 
 struct TestAllocator final {
     std::byte* allocate(std::size_t size) { return allocator.allocate(size); }
-    void deallocate(std::byte* start) { allocator.deallocate(start); }
+    void deallocate(std::byte* start, std::size_t size) { allocator.deallocate(start, size); }
 
     template<typename T, typename ... Arg>
     void construct(T* object, Arg&& ... arg) { allocator.construct(object, std::forward(arg) ...); }
@@ -74,7 +74,7 @@ TEST(TestUniquePtr, TestClear) {
 }
 
 TEST(TestUniquePtr, TestCastomAllocator) {
-    atom::utils::Owner<TestAllocator> testAllocator;
+    atom::utils::bc::Owner<TestAllocator> testAllocator;
     static auto counter = 0;
     struct Foo {
         Foo() { ++counter; }

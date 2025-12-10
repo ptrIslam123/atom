@@ -261,7 +261,7 @@ public:
      * @return SharedPtr owning the newly created object
      */
     template<typename... Arg>
-    static SharedPtr<T, C> Make(utils::Reference<AllocatorType> allocator, Arg&&... arg);
+    static SharedPtr<T, C> Make(utils::bc::Reference<AllocatorType> allocator, Arg&&... arg);
 
     /**
      * @brief Constructs an empty SharedPtr
@@ -540,7 +540,7 @@ SharedPtr<T, C> SharedPtr<T, C>::Make(Arg&&... arg) {
 
 template<typename T, typename C>
 template<typename... Arg>
-SharedPtr<T, C> SharedPtr<T, C>::Make(utils::Reference<AllocatorType> allocator, Arg&&... arg) {
+SharedPtr<T, C> SharedPtr<T, C>::Make(utils::bc::Reference<AllocatorType> allocator, Arg&&... arg) {
     return SharedPtr{C::template Allocate<T, Arg...>(allocator, std::forward<Arg>(arg)...)};
 }
 
@@ -906,7 +906,7 @@ public:
                 allocator.destruct(controlBlock);
             }
             if (controlBlockStart) {
-                allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock));
+                allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock), sizeof(controlBlock));
             }
             throw;
         }
@@ -916,7 +916,7 @@ public:
     }
 
     template<typename T, typename ... Arg>
-    static NonAtomicControlBlock* Allocate(utils::Reference<AllocatorType> allocator, Arg&& ... arg) {
+    static NonAtomicControlBlock* Allocate(utils::bc::Reference<AllocatorType> allocator, Arg&& ... arg) {
         constexpr auto TOTAL_SIZE = sizeof(NonAtomicControlBlock) + sizeof(T);
         std::byte* controlBlockStart = nullptr;
         NonAtomicControlBlock* controlBlock = nullptr;
@@ -939,7 +939,7 @@ public:
                     _allocator.destruct(controlBlock);
                 }
                 if (controlBlockStart) {
-                    _allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock));
+                    _allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock), sizeof(controlBlock));
                 }
             });
             throw;
@@ -955,13 +955,13 @@ public:
         if constexpr (std::is_same_v<AllocatorType, allocator::DefaultAllocator>) {
             AllocatorType allocator;
             allocator.destruct(controlBlock);
-            allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock));
+            allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock), sizeof(NonAtomicControlBlock));
         } else {
-            utils::Reference<AllocatorType> allocator{controlBlock->m_allocator};
+            utils::bc::Reference<AllocatorType> allocator{controlBlock->m_allocator};
             ASSERTION(allocator.isValid(), std::runtime_error, "Attempt to use invalid reference to castom allocator")
             allocator.accessMutable([&controlBlock](AllocatorType& _allocator) {
                 _allocator.destruct(controlBlock);
-                _allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock));
+                _allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock), sizeof(controlBlock));
             });
         }
     }
@@ -1065,7 +1065,7 @@ private:
 
     RefCountType m_strongRefCount{0};
     RefCountType m_weakRefCount{0};
-    utils::Reference<AllocatorType> m_allocator;
+    utils::bc::Reference<AllocatorType> m_allocator;
     // ... user data
 };
 
@@ -1110,7 +1110,7 @@ public:
     }
 
     template<typename T, typename ... Arg>
-    static AtomicControlBlock* Allocate(utils::Reference<AllocatorType> allocator, Arg&& ... arg) {
+    static AtomicControlBlock* Allocate(utils::bc::Reference<AllocatorType> allocator, Arg&& ... arg) {
         constexpr auto TOTAL_SIZE = sizeof(AtomicControlBlock) + sizeof(T);
         std::byte* controlBlockStart = nullptr;
         AtomicControlBlock* controlBlock = nullptr;
@@ -1151,7 +1151,7 @@ public:
             allocator.destruct(controlBlock);
             allocator.deallocate(reinterpret_cast<std::byte*>(controlBlock));
         } else {
-            utils::Reference<AllocatorType> allocator{controlBlock->m_allocator};
+            utils::bc::Reference<AllocatorType> allocator{controlBlock->m_allocator};
             ASSERTION(allocator.isValid(), std::runtime_error, "Attempt to use invalid reference to castom allocator")
             allocator.accessMutable([&controlBlock](AllocatorType& _allocator) {
                 _allocator.destruct(controlBlock);
@@ -1235,7 +1235,7 @@ private:
 
     std::atomic<RefCountType> m_strongRefCount{0};
     std::atomic<RefCountType> m_weakRefCount{0};
-    utils::Reference<AllocatorType> m_allocator;
+    utils::bc::Reference<AllocatorType> m_allocator;
     // ... user data
 };
 

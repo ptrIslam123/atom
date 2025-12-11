@@ -1,15 +1,14 @@
 #include <gtest/gtest.h>
 
-#include "include/containers/lock_free/spsc_ring_queue.h"
+#include "include/containers/lock_free/queue/fixed/spsc_ring_queue.h"
 #include "test/func/exchange_data.h"
 
 #include <atomic>
 #include <thread>
-#include <vector>
 #include <memory>
 #include <random>
 
-using namespace atom::containers::lock_free::spsc;
+using namespace atom::containers::lock_free::spsc::fixed;
 
 TEST(TestSPSCRingQueue, TestTryEnqueueAndTryDequeue) {
     constexpr auto OPERATIONS{1024 * 1024};

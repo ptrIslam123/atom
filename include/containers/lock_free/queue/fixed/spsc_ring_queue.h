@@ -1,13 +1,15 @@
+#ifndef ATOMC_CONTAINERS_LOCK_FREE_SPSC_RING_QUEUE_H
+#define ATOMC_CONTAINERS_LOCK_FREE_SPSC_RING_QUEUE_H
+
 #include <atomic>
 #include <array>
 #include <span>
 
 #include <cstring>
-#include <cstdint>
 #include <cstddef>
 #include <cassert>
 
-namespace atom::containers::lock_free::spsc {
+namespace atom::containers::lock_free::fixed::spsc {
 
 template<std::size_t N>
 class RingQueue final {
@@ -202,4 +204,6 @@ private:
     alignas(CACHELINE_SIZE) std::array<std::byte, N> m_buffer;
 };
 
-} //! namespace atom::containers::lock_free::spsc
+} //! namespace atom::containers::lock_free::fixed::spsc
+
+#endif //! ATOMC_CONTAINERS_LOCK_FREE_SPSC_RING_QUEUE_H

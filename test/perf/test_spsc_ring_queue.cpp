@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "include/containers/lock_free/spsc_ring_queue.h"
+#include "include/containers/lock_free/queue/fixed/spsc_ring_queue.h"
 #include "include/containers/fixed/ring_queue.h"
 #include "test/func/exchange_data.h"
 
@@ -14,6 +14,7 @@
 #include <iomanip>
 
 using namespace atom::containers;
+using namespace atom::containers::lock_free::spsc::fixed;
 
 TEST(TestPerfSPSCRingQueue, Test) {
     using ResolutionType = std::chrono::nanoseconds;
@@ -91,7 +92,7 @@ TEST(TestPerfSPSCRingQueue, Test) {
 
     // SPSC ring queue
     {
-        auto queue = std::make_shared<lock_free::spsc::RingQueue<OPERATIONS>>();
+        auto queue = std::make_shared<RingQueue<OPERATIONS>>();
 
         auto ProducerJob = [&queue, &spscProducerPerfAccumulator] {
             std::array<std::byte, ExchangeData::SIZE> buffer;

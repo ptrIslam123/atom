@@ -1,7 +1,7 @@
 #ifndef ATOM_SYNCHRONIZER_FICTITOUS_MUTEX_H
 #define ATOM_SYNCHRONIZER_FICTITOUS_MUTEX_H
 
-namespace atom::concurrentce::synchronizer {
+namespace atom::concurrence::synchronizer {
 
 /**
  * @brief A fictitious mutex class that mimics the behavior of a standard mutex.
@@ -103,6 +103,6 @@ struct SharedFictitiousMutex final {
     bool try_lock_shared() { return true; }
 };
 
-} //! namespace atom::concurrentce::synchronizer
+} //! namespace atom::concurrence::synchronizer
 
 #endif //! ATOM_SYNCHRONIZER_FICTITOUS_MUTEX_H

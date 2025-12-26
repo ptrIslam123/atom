@@ -1,15 +1,15 @@
 #include <gtest/gtest.h>
 #include <memory>
 
-#include "include/memory/allocators/lock_free/static_memory_pool.h"
+#include "include/memory/allocators/lock_free/fixed/memory_pool.h"
 
-using namespace atom::memory::allocator::lock_free;
+using namespace atom::memory::allocator::lock_free::fixed;
 
 constexpr std::size_t ID = 0;
 constexpr std::size_t BLOCK_SIZE = 1024;
 constexpr std::size_t CAPACITY = 1024 * 1024;
 constexpr std::size_t CACHE_SIZE = static_cast<std::size_t>(CAPACITY / 4);
-using StaticMemPool = StaticMemoryPool<ID, BLOCK_SIZE, CAPACITY, CACHE_SIZE>;
+using StaticMemPool = MemoryPool<ID, BLOCK_SIZE, CAPACITY, CACHE_SIZE>;
 
 TEST(TestStaticMemPool, SimpleTest) {
     std::byte* mem = nullptr;

@@ -1,11 +1,10 @@
 #ifndef ATOM_LOCK_FREE_STATIC_ALLOCATOR_H
 #define ATOM_LOCK_FREE_STATIC_ALLOCATOR_H
 
-#include "include/memory/allocators/lock_free/static_memory_pool.h"
+#include "include/memory/allocators/lock_free/fixed/memory_pool.h"
 #include "include/utils/assertion.h"
 
 #include <ostream>
-#include <atomic>
 #include <stdexcept>
 #include <cassert>
 
@@ -19,7 +18,7 @@
                                     assert(overhead >= 0);  \
                                     (void)m_totalMemoryOverhead.fetch_sub(overhead);
 
-namespace atom::memory::allocator::lock_free {
+namespace atom::memory::allocator::lock_free::fixed {
 
 template<typename T, std::size_t ... >
 class StaticAllocator;
@@ -77,7 +76,7 @@ public:
     void destruct(U* object);
 
 private:
-    using LockFreeMemoryPool = StaticMemoryPool<0, sizeof(T), N, N / 4>;
+    using LockFreeMemoryPool = MemoryPool<0, sizeof(T), N, N / 4>;
     LockFreeMemoryPool m_pool;
 };
 
@@ -109,19 +108,19 @@ template<
         std::size_t N32768,     // 32KB
         std::size_t N65536      // 65KB
 > class StaticAllocator<void*, N64, N128, N512, N1024, N4096, N8192, N16384, N32768, N65536> : private
-        StaticMemoryPool<1, 64, N64, N64 / 4>,
-        StaticMemoryPool<2, 128, N128, N128 / 4>,
-        StaticMemoryPool<3, 512, N512, N512 / 4>,
-        StaticMemoryPool<4, 1024, N1024, N1024 / 4>,
-        StaticMemoryPool<5, 4096, N4096, N4096 / 4>,
-        StaticMemoryPool<6, 8192, N8192, N8192 / 4>,
-        StaticMemoryPool<7, 16384, N16384, N16384 / 4>,
-        StaticMemoryPool<8, 32768, N32768, N32768 / 4>,
-        StaticMemoryPool<9, 65536, N65536, N65536 / 4>
+        MemoryPool<1, 64, N64, N64 / 4>,
+        MemoryPool<2, 128, N128, N128 / 4>,
+        MemoryPool<3, 512, N512, N512 / 4>,
+        MemoryPool<4, 1024, N1024, N1024 / 4>,
+        MemoryPool<5, 4096, N4096, N4096 / 4>,
+        MemoryPool<6, 8192, N8192, N8192 / 4>,
+        MemoryPool<7, 16384, N16384, N16384 / 4>,
+        MemoryPool<8, 32768, N32768, N32768 / 4>,
+        MemoryPool<9, 65536, N65536, N65536 / 4>
 {
 public:
     template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity>
-    using LockFreeMemoryPool = ::atom::memory::allocator::lock_free::StaticMemoryPool<
+    using LockFreeMemoryPool = ::atom::memory::allocator::lock_free::fixed::MemoryPool<
         Id, BlockSize, Capacity, Capacity / 4
     >;
     using PoolForMemReq64 = LockFreeMemoryPool<1, 64, N64>;
@@ -425,6 +424,6 @@ void StaticAllocator<void*, N64, N128, N512, N1024, N4096, N8192, N16384, N32768
 #undef CALC_STATIC_ALLOCATION_STAT
 #undef CALC_STATIC_DEALLOCATION_STAT
 
-} //! namespace atom::memory::allocator::lock_free
+} //! namespace atom::memory::allocator::lock_free::fixed
 
 #endif //! ATOM_LOCK_FREE_STATIC_ALLOCATOR_H

@@ -14,7 +14,7 @@
 #include <iomanip>
 
 using namespace atom::containers;
-using namespace atom::containers::lock_free::spsc::fixed;
+using namespace atom::containers::lock_free::fixed::spsc;
 
 TEST(TestPerfSPSCRingQueue, Test) {
     using ResolutionType = std::chrono::nanoseconds;

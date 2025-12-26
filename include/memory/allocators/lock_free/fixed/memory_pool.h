@@ -18,7 +18,7 @@
 #include <cstring>
 #include <cassert>
 
-namespace atom::memory::allocator::lock_free {
+namespace atom::memory::allocator::lock_free::fixed {
 
 /**
  * @brief A thread-safe, lock-free static memory pool allocator.
@@ -41,7 +41,7 @@ namespace atom::memory::allocator::lock_free {
  * - The global pool is not exhausted.
  */
 template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
-class StaticMemoryPool {
+class MemoryPool {
 public:
     static_assert(BlockSize > 0 && BlockSize % alignof(std::max_align_t) == 0,
                   "BlockSize must be multiple of platform alignment");
@@ -59,11 +59,11 @@ public:
     /// Per-thread cache size (number of blocks)
     static constexpr std::size_t CACHE_SIZE = CacheSize;
 
-    explicit StaticMemoryPool() = default;
-    StaticMemoryPool(const StaticMemoryPool& ) = delete;
-    StaticMemoryPool(StaticMemoryPool&& ) = delete;
-    StaticMemoryPool& operator=(const StaticMemoryPool& ) = delete;
-    StaticMemoryPool& operator=(StaticMemoryPool&& ) = delete;
+    explicit MemoryPool() = default;
+    MemoryPool(const MemoryPool& ) = delete;
+    MemoryPool(MemoryPool&& ) = delete;
+    MemoryPool& operator=(const MemoryPool& ) = delete;
+    MemoryPool& operator=(MemoryPool&& ) = delete;
 
     /**
      * @brief Allocates a memory block.
@@ -127,7 +127,7 @@ private:
 };
 
 template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
-std::byte* StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::allocate() {
+std::byte* MemoryPool<Id, BlockSize, Capacity, CacheSize>::allocate() {
     auto& localCache = getThreadLocalCachedMemoryBlockStorage();
     if (!localCache.isEmpty()) {
         auto memBlock = localCache.back();
@@ -150,7 +150,7 @@ std::byte* StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::allocate() {
 }
 
 template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
-void StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::deallocate(std::byte* ptr) {
+void MemoryPool<Id, BlockSize, Capacity, CacheSize>::deallocate(std::byte* ptr) {
     if (!ptr) [[unlikely]] {
         return;
     }
@@ -175,25 +175,25 @@ void StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::deallocate(std::byte*
 }
 
 template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
-typename StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::MemoryBlock::Status
-StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::MemoryBlock::getStatus() const noexcept {
+typename MemoryPool<Id, BlockSize, Capacity, CacheSize>::MemoryBlock::Status
+MemoryPool<Id, BlockSize, Capacity, CacheSize>::MemoryBlock::getStatus() const noexcept {
     return status.load();
 }
 
 template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
-bool StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::MemoryBlock::tryAcquire() noexcept {
+bool MemoryPool<Id, BlockSize, Capacity, CacheSize>::MemoryBlock::tryAcquire() noexcept {
     auto expect = Status::Released;
     return status.compare_exchange_strong(expect, Status::Acquired);
 }
 
 template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
-bool StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::MemoryBlock::release() noexcept {
+bool MemoryPool<Id, BlockSize, Capacity, CacheSize>::MemoryBlock::release() noexcept {
     auto expect = Status::Acquired;
     return status.compare_exchange_strong(expect, Status::Released);
 }
 
 template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
-constexpr bool StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::checkBlock(const MemoryBlock* block) const noexcept {
+constexpr bool MemoryPool<Id, BlockSize, Capacity, CacheSize>::checkBlock(const MemoryBlock* block) const noexcept {
 #if !defined(NDEBUG)
     return (block->canaryStart == ID && block->canaryEnd == ID);
 #else
@@ -202,14 +202,14 @@ constexpr bool StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::checkBlock(
 }
 
 template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
-typename StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::CachedMemoryBlockStorage&
-StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::getThreadLocalCachedMemoryBlockStorage() noexcept {
+typename MemoryPool<Id, BlockSize, Capacity, CacheSize>::CachedMemoryBlockStorage&
+MemoryPool<Id, BlockSize, Capacity, CacheSize>::getThreadLocalCachedMemoryBlockStorage() noexcept {
     static thread_local CachedMemoryBlockStorage cache;
     return cache;
 }
 
 template<std::size_t Id, std::size_t BlockSize, std::size_t Capacity, std::size_t CacheSize>
-void StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::dumpStats(std::ostream& os) {
+void MemoryPool<Id, BlockSize, Capacity, CacheSize>::dumpStats(std::ostream& os) {
 #if defined(STAT_MODE)
     const auto allocateCacheHints = m_allocateCacheHints.load();
     const auto allocateCacheMisses = m_allocateCacheMisses.load();
@@ -229,6 +229,6 @@ void StaticMemoryPool<Id, BlockSize, Capacity, CacheSize>::dumpStats(std::ostrea
 #endif
 }
 
-} //! namespace atom::memory::allocator::lock_free
+} //! namespace atom::memory::allocator::lock_free::fixed
 
 #endif //! ATOM_LOCK_FREE_STATIC_MEMORY_POOL_H

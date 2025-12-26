@@ -1,6 +1,8 @@
 #ifndef ATOMC_CONTAINERS_LOCK_FREE_SPSC_RING_QUEUE_H
 #define ATOMC_CONTAINERS_LOCK_FREE_SPSC_RING_QUEUE_H
 
+#include "include/utils/compiler_attr.h"
+
 #include <atomic>
 #include <array>
 #include <span>
@@ -28,7 +30,7 @@ public:
     RingQueue() noexcept = default;
     ~RingQueue() noexcept = default;
 
-    bool tryEnqueue(std::span<const std::byte> data) noexcept {
+    FORCE_INLINE bool tryEnqueue(std::span<const std::byte> data) noexcept {
         [[maybe_unused]] SizeType available{};
         return tryEnqueue(data, available);
     }
@@ -76,7 +78,7 @@ public:
         return enqueued;
     }
 
-    SizeType enqueue(std::span<const std::byte> data) noexcept {
+    FORCE_INLINE SizeType enqueue(std::span<const std::byte> data) noexcept {
         [[maybe_unused]] SizeType available{};
         return enqueue(data, available);
     }
@@ -101,7 +103,7 @@ public:
         return false;
     }
 
-    bool tryDequeue(std::span<std::byte> data) noexcept {
+    FORCE_INLINE bool tryDequeue(std::span<std::byte> data) noexcept {
         [[maybe_unused]] SizeType available{};
         return tryDequeue(data, available);
     }
@@ -129,20 +131,23 @@ public:
         return dequeued;
     }
 
-    SizeType dequeue(std::span<std::byte> data) noexcept {
+    FORCE_INLINE SizeType dequeue(std::span<std::byte> data) noexcept {
         [[maybe_unused]] SizeType available{};
         return dequeue(data, available);
     }
 
-    constexpr SizeType size() const noexcept {
-        m_cachedWriterIndex = m_writerIndex.load(std::memory_order_acquire);
-        m_cachedReaderIndex = m_readerIndex.load(std::memory_order_acquire);
-        return canDequeue(m_cachedWriterIndex, m_cachedReaderIndex);
+    FORCE_INLINE constexpr SizeType size() const noexcept {
+        return canDequeue(
+            m_writerIndex.load(std::memory_order_acquire),
+            m_readerIndex.load(std::memory_order_acquire)
+        );
     }
-    constexpr SizeType capacity() const noexcept {
+
+    FORCE_INLINE constexpr SizeType capacity() const noexcept {
         return CAPACITY;
     }
-    constexpr bool empty() const noexcept {
+
+    FORCE_INLINE constexpr bool empty() const noexcept {
         return size() == 0;
     }
 
@@ -150,11 +155,11 @@ private:
     static constexpr auto CACHELINE_SIZE{64};
     static constexpr auto MASK{N - 1};
 
-    constexpr void copyTo(std::byte* begin, std::span<const std::byte> data) {
+    FORCE_INLINE constexpr void copyTo(std::byte* begin, std::span<const std::byte> data) {
         std::byte* end{m_buffer.data() + m_buffer.size()};
         assert(begin <= end);
         std::size_t remaining{static_cast<std::size_t>(end - begin)};
-        if (data.size() <= remaining) {
+        if LIKELY_EXPR(data.size() <= remaining) {
             std::memcpy(begin, data.data(), data.size());
         } else {
             std::memcpy(begin, data.data(), remaining);
@@ -162,11 +167,11 @@ private:
         }
     }
 
-    constexpr void copyFrom(std::byte* begin, std::span<std::byte> data) {
+    FORCE_INLINE constexpr void copyFrom(std::byte* begin, std::span<std::byte> data) {
         std::byte* end{m_buffer.data() + m_buffer.size()};
         assert(begin <= end);
         std::size_t remaining{static_cast<std::size_t>(end - begin)};
-        if (data.size() <= remaining) {
+        if LIKELY_EXPR(data.size() <= remaining) {
             std::memcpy(data.data(), begin, data.size());
         } else {
             std::memcpy(data.data(), begin, remaining);
@@ -174,7 +179,7 @@ private:
         }
     }
 
-    constexpr SizeType canEnqueue(SizeType writerIndex, SizeType readerIndex) const noexcept {
+    FORCE_INLINE constexpr SizeType canEnqueue(SizeType writerIndex, SizeType readerIndex) const noexcept {
         assert(writerIndex < N);
         assert(readerIndex < N);
 
@@ -185,7 +190,7 @@ private:
         }
     }
 
-    constexpr SizeType canDequeue(SizeType writerIndex, SizeType readerIndex) const noexcept {
+    FORCE_INLINE constexpr SizeType canDequeue(SizeType writerIndex, SizeType readerIndex) const noexcept {
         assert(writerIndex < N);
         assert(readerIndex < N);
 

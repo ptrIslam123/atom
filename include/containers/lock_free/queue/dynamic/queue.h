@@ -4,30 +4,32 @@
 #include "include/utils/compiler_attr.h"
 #include "include/utils/assertion.h"
 #include "include/memory/allocators/default_allocator.h"
+#include "include/memory/allocators/lock_free/fixed/tagged_memory_pool.h"
 
 #include <atomic>
-#include <new>
 #include <cassert>
 
-namespace atom::containers::lock_free::dynamic {
+namespace atom::containers::lock_free::fixed {
 
-template<typename T, typename A = memory::allocator::DefaultAllocator>
+template<typename T, std::size_t Capacity>
 class Queue final {
 public:
     using ElementType = T;
-    using AllocatorType = A;
+    using AllocatorType = memory::allocator::lock_free::fixed::TaggedMemoryPool<
+        Queue, sizeof(ElementType), Capacity
+    >;
 
     Queue() noexcept {
-        Node* stub = allocate(T{});
+        auto stub = allocate(T{});
         m_head.store(stub, std::memory_order_relaxed);
         m_tail.store(stub, std::memory_order_relaxed);
     }
 
     ~Queue() {
-        T dummy;
-        while (dequeue(dummy)) { /* опустошаем */ }
-        Node* last = m_head.load(std::memory_order_relaxed);
-        deallocate(last);                    // освободили фиктивный
+        // T dummy;
+        // while (dequeue(dummy)) { /* опустошаем */ }
+        // Node* last = m_head.load(std::memory_order_relaxed);
+        // deallocate(last);                    // освободили фиктивный
     }
 
     void enqueue(const T& data) {
@@ -89,70 +91,67 @@ public:
     }
 
     bool dequeue(T& out) {
-        for (;;) {
-            auto headNode = m_head.load(std::memory_order_acquire);
-            auto tailNode = m_tail.load(std::memory_order_acquire);
-            auto nextNode = headNode->next.load(std::memory_order_acquire);
+        // for (;;) {
+        //     auto headNode = m_head.load(std::memory_order_acquire);
+        //     auto tailNode = m_tail.load(std::memory_order_acquire);
+        //     auto nextNode = headNode->next.load(std::memory_order_acquire);
 
-            /* 1. Убеждаемся, что head не изменился */
-            if UNLIKELY_EXPR(headNode != m_head.load(std::memory_order_acquire)) continue;
+        //     /* 1. Убеждаемся, что head не изменился */
+        //     if UNLIKELY_EXPR(headNode != m_head.load(std::memory_order_acquire)) continue;
 
-            /* 2. Если head == tail, очередь либо пуста, либо tail отстал */
-            if (headNode == tailNode) {
-                if (nextNode == nullptr)          // действительно пуста
-                    return false;
+        //     /* 2. Если head == tail, очередь либо пуста, либо tail отстал */
+        //     if (headNode == tailNode) {
+        //         if (nextNode == nullptr)          // действительно пуста
+        //             return false;
 
-                /* tail отстал – помогаем двигать */
-                m_tail.compare_exchange_weak(
-                    tailNode, nextNode,
-                    std::memory_order_release,
-                    std::memory_order_relaxed
-                );
-                continue;
-            }
+        //         /* tail отстал – помогаем двигать */
+        //         m_tail.compare_exchange_weak(
+        //             tailNode, nextNode,
+        //             std::memory_order_release,
+        //             std::memory_order_relaxed
+        //         );
+        //         continue;
+        //     }
 
-            /* 3. Есть элемент – пытаемся сдвинуть head */
-            if (m_head.compare_exchange_weak(
-                    headNode, nextNode,
-                    std::memory_order_release,
-                    std::memory_order_relaxed))
-            {
-                out = std::move(nextNode->data);  // данные хранятся в *следующем* узле
-                deallocate(headNode);             // освободили фиктивный/старый узел
-                return true;
-            }
-        }
+        //     /* 3. Есть элемент – пытаемся сдвинуть head */
+        //     if (m_head.compare_exchange_weak(
+        //             headNode, nextNode,
+        //             std::memory_order_release,
+        //             std::memory_order_relaxed))
+        //     {
+        //         out = std::move(nextNode->data);  // данные хранятся в *следующем* узле
+        //         deallocate(headNode);             // освободили фиктивный/старый узел
+        //         return true;
+        //     }
+        // }
     }
 
 private:
     static constexpr auto CACHELINE_SIZE{64 /*std::hardware_destructive_interference_size*/};
-
+    using NodePtr = AllocatorType::TaggedPointer;
     struct Node {
-        std::atomic<Node*> next{nullptr};
+        std::atomic<NodePtr> next{};
         T data{};
 
         Node(const T& _data)
             : data(_data)
-            , next(nullptr)
+            , next()
         {}
     };
 
-    Node* allocate(const T& data) {
-        Node* node =  m_allocator.allocate(sizeof(T));
-        ASSERTION(node, std::runtime_error, "Bad alloc")
-        m_allocator.template construct<Node>(node, data);
-        return node;
+    NodePtr allocate(const T& data) {
+        //auto ptr = m_allocator.allocate();
+        //m_allocator.template construct<Node>(ptr);
+        //return ptr;
     }
 
-    void deallocate(Node* node) {
-        if (node) {
-            m_allocator.template destruct<Node>(node);
-            m_allocator.deallocate(node);
-        }
+    void deallocate(NodePtr&& ptr) {
+        m_allocator.template destruct<Node>(ptr);
+        m_allocator.deallocate(std::move(ptr));
     }
 
-    alignas(CACHELINE_SIZE) std::atomic<Node*> m_head;
-    alignas(CACHELINE_SIZE) std::atomic<Node*> m_tail;
+    alignas(CACHELINE_SIZE) std::atomic<NodePtr> m_head;
+    alignas(CACHELINE_SIZE) std::atomic<NodePtr> m_tail;
     AllocatorType m_allocator;
 };
 

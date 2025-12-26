@@ -8,7 +8,7 @@
 #include <memory>
 #include <random>
 
-using namespace atom::containers::lock_free::spsc::fixed;
+using namespace atom::containers::lock_free::fixed::spsc;
 
 TEST(TestSPSCRingQueue, TestTryEnqueueAndTryDequeue) {
     constexpr auto OPERATIONS{1024 * 1024};

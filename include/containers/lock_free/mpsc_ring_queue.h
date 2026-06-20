@@ -170,10 +170,6 @@ public:
         // 2) МЕДЛЕННЫЙ ПУТЬ: синхронизируем кэш
         // Загружаем актуальный readerIndex
         const auto readerIndex = m_readerIndex.load(std::memory_order_acquire);
-
-        // ВАЖНО: перезагружаем commitIndex, так как он мог измениться!
-        //commitIndex = m_commitIndex.load(std::memory_order_acquire);
-
         available = canDequeue(readerIndex, commitIndex);
         if (available > 0) {
             m_cachedReaderIndex = readerIndex;

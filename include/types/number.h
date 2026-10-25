@@ -1,7 +1,7 @@
 #ifndef ATOM_TYPES_NUMBERS_H
 #define ATOM_TYPES_NUMBERS_H
 
-#include "include/types/type_wrapper.h"
+#include "type_wrapper.h"
 
 #include <stdexcept>
 #include <limits>

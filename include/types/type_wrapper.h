@@ -1,7 +1,7 @@
 #ifndef ATOM_TYPE_WRAPPER_H
 #define ATOM_TYPE_WRAPPER_H
 
-#include "include/sfinae/has_class_method.h"
+#include "sfinae/has_class_method.h"
 
 #include <utility>
 #include <type_traits>

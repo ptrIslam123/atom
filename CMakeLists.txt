@@ -13,6 +13,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(BUILD_TESTS    "Build unit tests"                 ON)
 option(BUILD_EXAMPLES "Build examples"                   ON)
 option(SANITIZE       "Enable AddressSanitizer and UBSan" OFF)
+option(SANITIZE_THREAD "Enable ThreadSanitizer (incompatible with SANITIZE)" OFF)
 option(COVERAGE       "Enable gcov coverage instrumentation" OFF)
 option(WERROR         "Treat warnings as errors"         OFF)
 option(BUILD_DOCS     "Build API documentation (needs Doxygen)" OFF)
@@ -32,6 +33,14 @@ include(CMakePackageConfigHelpers)
 
 # Atom has no external runtime dependencies; GoogleTest is fetched only for tests.
 find_package(Threads REQUIRED)
+find_path(LIBURCU_INCLUDE_DIR NAMES urcu.h)
+find_library(LIBURCU_LIBRARY NAMES urcu)
+
+if(LIBURCU_INCLUDE_DIR AND LIBURCU_LIBRARY)
+    set(LIBURCU_INCLUDE_DIRS ${LIBURCU_INCLUDE_DIR})
+    set(LIBURCU_LIBRARIES ${LIBURCU_LIBRARY})
+endif()
+
 
 if(BUILD_TESTS)
     include(FetchContent)
@@ -56,9 +65,13 @@ target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_23)
 target_include_directories(${PROJECT_NAME} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    ${LIBURCU_INCLUDE_DIRS}
 )
 
-target_link_libraries(${PROJECT_NAME} PUBLIC Threads::Threads)
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    ${LIBURCU_LIBRARIES}
+    Threads::Threads
+)
 
 target_compile_options(${PROJECT_NAME} PRIVATE
     -Wall
@@ -73,6 +86,18 @@ if(SANITIZE)
         $<BUILD_INTERFACE:-fno-omit-frame-pointer>
     )
     target_link_options(${PROJECT_NAME} PUBLIC $<BUILD_INTERFACE:-fsanitize=address,undefined>)
+endif()
+
+if(SANITIZE_THREAD)
+    if(SANITIZE)
+        message(FATAL_ERROR "SANITIZE and SANITIZE_THREAD are mutually exclusive")
+    endif()
+    target_compile_options(${PROJECT_NAME} PUBLIC
+        $<BUILD_INTERFACE:-fsanitize=thread>
+        $<BUILD_INTERFACE:-fno-omit-frame-pointer>
+        $<BUILD_INTERFACE:-g>
+    )
+    target_link_options(${PROJECT_NAME} PUBLIC $<BUILD_INTERFACE:-fsanitize=thread>)
 endif()
 
 # gcov instrumentation for the library only. Consumers such as unit-tests link
